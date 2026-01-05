@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS ---
+enum QueueType {
+  RANKED_SOLO
+  RANKED_FLEX
+}
+
+enum Lane {
+  TOP
+  JUNGLE
+  MIDDLE
+  BOTTOM
+  UTILITY
+}
+
+model Season {
+  id        String   @id @default(uuid())
+  name      String   @unique // Ex: "Season 2026"
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+
+  performances MatchPerformance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Summoner {
+  puuid         String   @id
+  gameName      String
+  tagLine       String
+  profileIconId Int
+  summonerLevel Int
+  region        String   // Ex: "BR1"
+  isActive      Boolean  @default(true) // Indicates if we are tracking this summoner
+
+  performances MatchPerformance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameName, tagLine])
+}
+
+model Match {
+  matchId      String   @id // Ex: "BR1_1234567890"
+  gameCreation DateTime
+  gameDuration Int      // In seconds
+  gameMode     String   // "CLASSIC"
+  gameVersion  String
+  queueType    QueueType
+
+  performances MatchPerformance[]
+
+  createdAt DateTime @default(now())
+}
+
+model MatchPerformance {
+  matchId String
+  match   Match  @relation(fields: [matchId], references: [matchId])
+
+  puuid    String
+  summoner Summoner @relation(fields: [puuid], references: [puuid])
+
+  seasonId String
+  season   Season @relation(fields: [seasonId], references: [id])
+
+  // --- Identity ---
+  championId   Int
+  championName String
+  lane         Lane
+  role         String // SOLO, CARRY, SUPPORT (Keep as string or infer from lane?) Keeping as string for Riot data compatibility if needed, or remove if Lane covers it. Keeping for safety.
+  win          Boolean
+
+  // --- SCORE (Immutable & Canonical) ---
+  // Total Score (0-100) - Changed to Int
+  matchScore       Int 
+  
+  // Breakdown for Audit - Changed to Int
+  scoreResult      Int // Max 25
+  scorePerformance Int // Max 45
+  scoreObjectives  Int // Max 20
+  scoreDiscipline  Int // Max 10
+
+  // --- METRICS (Snapshot for Audit) ---
+  // Absolute Stats
+  kills                  Int
+  deaths                 Int
+  assists                Int
+  cs                     Int // Minions + Monsters
+  visionScore            Int
+  goldEarned             Int
+  damageDealtToChampions Int
+  
+  // Per Minute Stats (Normalized)
+  kda  Float // (K+A) / Max(1, D)
+  cspm Float // CS / Duration(min)
+  vspm Float // Vision / Duration(min)
+  gpm  Float // Gold / Duration(min)
+  dpm  Float // Damage / Duration(min)
+
+  // --- CONTEXT (Lane Averages) ---
+  // Stores the average performace of the lane in THIS match for calculation reference
+  laneAvgKda  Float
+  laneAvgCspm Float
+  laneAvgVspm Float
+  laneAvgGpm  Float
+  laneAvgDpm  Float
+
+  // --- OBJECTIVES (Participation) ---
+  turretTakedowns Int
+  dragonTakedowns Int
+  baronTakedowns  Int
+  heraldTakedowns Int
+  
+  createdAt DateTime @default(now())
+
+  @@id([matchId, puuid])
+}
