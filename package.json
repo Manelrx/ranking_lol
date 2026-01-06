@@ -20,11 +20,12 @@
   "homepage": "https://github.com/Manelrx/ranking_lol#readme",
   "devDependencies": {
     "@types/node": "^25.0.3",
-    "prisma": "^7.2.0",
+    "prisma": "^5.13.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@prisma/client": "^5.13.0",
     "@types/axios": "^0.9.36",
     "axios": "^1.13.2",
     "bottleneck": "^2.19.5",

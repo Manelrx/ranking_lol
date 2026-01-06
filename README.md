@@ -59,16 +59,37 @@ npx ts-node src/cli/test-score.ts <PUUID> <MATCH_ID>
 }
 ```
 
-## ⚖️ Regras de Pontuação (Resumo)
+## ⚖️ Regras de Pontuação (Canonical 60-30-10)
 
-O score máximo é **100**.
+O sistema utiliza um motor de pontuação rígido (`scoring.engine.ts`) com score máximo de **100**.
 
-1.  **Resultado (0-25)**: Vitória = 25, Derrota = 10.
-2.  **Performance (0-45)**: 5 métricas (KDA, CS, Gold, Dano, Visão) comparadas com a média da lane.
-3.  **Objetivos (0-20)**: Participação em Torres, Dragões, Arauto e Barão.
-4.  **Disciplina (0-10)**: Mortes comparadas com a média da lane.
+### 1. Estrutura de Vitória (100 Ptos)
+| Bloco | Max | Descrição |
+|-------|-----|-----------|
+| **Performance** | 60 | Métricas específicas por lane (CS, Dano, etc) calculadas via *ratio* vs oponente. |
+| **Objetivos** | 30 | Torres (10), Dragões (10), Arauto (5), Barão (5). |
+| **Disciplina** | 10 | Mortes vs Oponente (Menos=10, Igual=5, Mais=0). |
 
-*Nota: Partidas com menos de 10 minutos são ignoradas.*
+### 2. Pesos por Lane (Performance)
+Cada função tem foco diferente para somar os 60 pontos de performance:
+*   **TOP**: CS(15), Dano(15), Tankiness(10), KP(10), Visão(10)
+*   **JUNGLE**: Objetivos Globais(25), Visão(15), KP(10), Gold(5), Dano(5)
+*   **MID**: Dano(20), CS(15), KP(10), Visão(10), Gold(5)
+*   **ADC**: CS(20), Dano(20), KP(10), Visão(5), Gold(5)
+*   **SUP**: Visão(25), KP(15), Part. Objetivos(10), Gold(5), Dano(5)
+
+### 3. Regras de Derrota (Teto 40)
+*   **KP Mínimo**: Se seu Kill Participation for < 35%, o score é **0**.
+*   **Teto**: Máximo de 40 pontos.
+*   **Performance**: Pontua no máximo 20 (apenas métricas onde você venceu o oponente).
+*   **Objetivos**: Pontua no máximo 10.
+*   **Disciplina**: Pontua no máximo 10.
+
+### 4. Exclusões
+*   Partidas < 10 minutos.
+*   Partidas fora da Season (Datas controladas).
+
+*O cálculo é determinístico: `metricScore(ratio)` com piso 20% (ratio 0.7) e teto 100% (ratio 1.3).*
 
 ## 📂 Estrutura do Projeto
 
