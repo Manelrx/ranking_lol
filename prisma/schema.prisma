@@ -13,9 +13,29 @@ model Player {
   tagLine     String
   displayName String
   isActive    Boolean  @default(true)
+  tier        String?  // EMERALD, DIAMOND, etc.
+  rank        String?  // IV, III, II, I
+  summonerId  String?  // Cache for League V4 API
   createdAt   DateTime @default(now())
 
-  scores MatchScore[]
+  scores      MatchScore[]
+  snapshots   RankSnapshot[]
+}
+
+model RankSnapshot {
+  id        Int      @id @default(autoincrement())
+  
+  player    Player   @relation(fields: [playerId], references: [puuid])
+  playerId  String
+  
+  queueType String   // SOLO | FLEX
+  tier      String
+  rank      String
+  lp        Int
+  
+  createdAt DateTime @default(now())
+
+  @@index([playerId, queueType, createdAt])
 }
 
 model Match {

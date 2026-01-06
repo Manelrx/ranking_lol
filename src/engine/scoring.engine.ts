@@ -8,7 +8,7 @@
  * 3. Comparison vs Lane Average (Opponent).
  * 4. Structure:
  *    - Victory: Perf (60) + Obj (30) + Disc (10) = 100.
- *    - Defeat: Cap 40. KP < 35% = 0.
+ *    - Defeat: Cap 40. KP < 15% = 0 (Anti-AFK).
  */
 
 // --- Interfaces ---
@@ -313,22 +313,29 @@ export const calculateMatchScore = (targetPuuid: string, match: MatchDTO): Match
     else if (p.deaths === opp.deaths) disciplineScore = 5;
     else disciplineScore = 0;
 
-    // --- 7️⃣ DERROTA / VICTORY FINALIZATION ---
+    // 7️⃣ DERROTA / VICTORY FINALIZATION ---
 
     let finalScore = 0;
     let capApplied = undefined;
 
     if (isWin) {
+        // VICTORY LOGIC:
+        // Pure Scoring. No KP Cap.
+        // Logic: If you won, even with 0% KP (Split Push / Macro), you deserve the score you earned via Objectives/Performance.
         finalScore = perfScore + objectivesScore + disciplineScore;
         // Cap 100
         finalScore = Math.min(100, finalScore);
     } else {
         // Defeat Rules
-        // 1. KP Check
-        if (kpPercent < 35) {
+
+        // 1. KP Check - ANTI-AFK FILTER
+        // Old Rule: < 35%. New Rule: < 15%.
+        // Logic: In a defeat, low KP might mean "Split Push" or "Hard Focus", but < 15% usually implies AFK or non-participation.
+        // We do not want to punish macro players who tried to win via side lanes.
+        if (kpPercent < 15) {
             return {
                 matchScore: 0,
-                breakdown: { performance: 0, objectives: 0, discipline: 0, isVictory: false, capApplied: "KP < 35%" },
+                breakdown: { performance: 0, objectives: 0, discipline: 0, isVictory: false, capApplied: "KP < 15% (Anti-AFK)" },
                 metrics,
                 ratios
             };

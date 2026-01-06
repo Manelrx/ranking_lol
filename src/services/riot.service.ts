@@ -36,6 +36,10 @@ export class RiotService {
                 if (error.response?.status === 429) {
                     console.warn('Rate Limit Exceeded. Warinig: Production should handle Retry-After header.');
                 }
+                // Enhanced Logging
+                if (error.response?.data?.status) {
+                    console.error(`API Error Detail: ${JSON.stringify(error.response.data.status)}`);
+                }
                 throw new Error(`Riot API Error [${url}]: ${error.response?.status} - ${error.response?.statusText}`);
             }
         });
@@ -69,5 +73,24 @@ export class RiotService {
     async getMatchDetails(matchId: string): Promise<any> {
         const url = `${this.regionUrl}/lol/match/v5/matches/${matchId}`;
         return this.executeRequest<any>(url);
+    }
+
+    /**
+     * Get Summoner by PUUID (Summoner-V4)
+     * Needed to get 'id' (SummonerID) for League-V4
+     */
+    async getSummonerByPuuid(puuid: string): Promise<any> {
+        const url = `${this.platformUrl}/lol/summoner/v4/summoners/by-puuid/${puuid}`;
+        console.log(`[RiotService] Fetching Summoner: ${url}`);
+        return this.executeRequest<any>(url);
+    }
+
+    /**
+     * Get League Entries (League-V4)
+     * Returns all ranked entries (Solo/Flex)
+     */
+    async getLeagueEntries(summonerId: string): Promise<any[]> {
+        const url = `${this.platformUrl}/lol/league/v4/entries/by-summoner/${summonerId}`;
+        return this.executeRequest<any[]>(url);
     }
 }
