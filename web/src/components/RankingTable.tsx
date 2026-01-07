@@ -2,7 +2,7 @@
 
 import { RankingEntry } from '@/lib/api';
 import { EloBadge } from './EloBadge';
-import { TrendIcon } from './TrendIcon';
+import { PlayerAvatar } from './ui/PlayerAvatar'; // Added
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Card } from './ui/Card';
@@ -71,9 +71,12 @@ export function RankingTable({ data }: { data: RankingEntry[] }) {
                                 {/* Player Info */}
                                 <td className="p-4">
                                     <Link href={`/player/${player.puuid}`} className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center font-bold text-gray-400 group-hover:border-emerald-500/50 group-hover:text-emerald-400 transition-all">
-                                            {player.gameName.substring(0, 1)}
-                                        </div>
+                                        <PlayerAvatar
+                                            profileIconId={player.profileIconId}
+                                            summonerLevel={player.summonerLevel}
+                                            size="sm"
+                                            className="border border-white/10 group-hover:border-emerald-500/50 transition-all"
+                                        />
                                         <div>
                                             <div className="font-bold text-white group-hover:text-emerald-400 transition-colors">
                                                 {player.gameName}

@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3001/api';
+const API_URL = 'http://localhost:3002/api';
 
 export interface RankingEntry {
     rank: number;
@@ -50,6 +50,12 @@ export interface PlayerHistory {
         summonerLevel?: number | null;
     };
     history: PlayerHistoryEntry[];
+    masteries: {
+        championId: number;
+        championName: string;
+        level: number;
+        points: number;
+    }[];
 }
 
 export interface PdlGainEntry {
@@ -137,6 +143,7 @@ export interface WeeklyHighlights {
     mostActive: HighlightPlayer | null;
     highestDmg: HighlightPlayer | null;
     bestVision: HighlightPlayer | null;
+    periodLabel: string; // Added for frontend
 }
 
 export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<PlayerInsights> {
@@ -148,5 +155,26 @@ export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 
 export async function getHighlights(queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<WeeklyHighlights> {
     const res = await fetch(`${API_URL}/ranking/highlights?queue=${queue}`);
     if (!res.ok) throw new Error('Failed to fetch highlights');
+    return res.json();
+}
+
+// PDL Evolution Types
+export interface PdlSnapshot {
+    tier: string;
+    rank: string;
+    lp: number;
+    date: string; // ISO
+}
+
+export interface PdlEvolution {
+    start: PdlSnapshot;
+    current: PdlSnapshot;
+    gain: number;
+    gainLabel: string;
+}
+
+export async function getPdlEvolution(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<PdlEvolution | null> {
+    const res = await fetch(`${API_URL}/player/${puuid}/pdl-evolution?queue=${queue}`);
+    if (!res.ok) return null; // Return null if not found/error, allowing UI to hide it
     return res.json();
 }

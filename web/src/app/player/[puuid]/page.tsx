@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getPlayerHistory, getPlayerInsights, PlayerHistory, PlayerInsights, MatchHistoryEntry } from "@/lib/api";
+import { getPlayerHistory, getPlayerInsights, getPdlEvolution, PlayerHistory, PlayerInsights, MatchHistoryEntry, PdlEvolution } from "@/lib/api";
 import { PdlChart } from "@/components/PdlChart";
 import { MatchHistoryTable } from "@/components/MatchHistoryTable";
 import { MatchDetailsSidePanel } from "@/components/MatchDetailsSidePanel";
@@ -18,6 +18,7 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
     const queueParam = searchParams.get("queue")?.toUpperCase();
     const queue = (queueParam === "FLEX" ? "FLEX" : "SOLO") as "SOLO" | "FLEX";
 
+    const [evolution, setEvolution] = useState<PdlEvolution | null>(null);
     const [history, setHistory] = useState<PlayerHistory | null>(null);
     const [insights, setInsights] = useState<PlayerInsights | null>(null);
     const [loading, setLoading] = useState(true);
@@ -27,12 +28,14 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
         const fetch = async () => {
             setLoading(true);
             try {
-                const [hData, iData] = await Promise.all([
+                const [hData, iData, eData] = await Promise.all([
                     getPlayerHistory(puuid, queue),
-                    getPlayerInsights(puuid, queue)
+                    getPlayerInsights(puuid, queue),
+                    getPdlEvolution(puuid, queue)
                 ]);
                 setHistory(hData);
                 setInsights(iData);
+                setEvolution(eData);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -93,14 +96,21 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
 
                     {/* Evolution Chart */}
                     <Card variant="glass" className="h-[400px]">
-                        <div className="flex items-center gap-3 mb-6 p-2">
-                            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-                                <TrendingUp size={20} />
+                        <div className="flex items-center justify-between mb-6 p-2">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                                    <TrendingUp size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">Evolução de PDL</h3>
+                                    <p className="text-xs text-gray-500">Histórico da Temporada Atual</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-white">Evolução de PDL</h3>
-                                <p className="text-xs text-gray-500">Histórico da Temporada Atual</p>
-                            </div>
+                            {evolution && (
+                                <div className={`px-3 py-1 rounded-full border ${evolution.gain > 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : evolution.gain < 0 ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-gray-500/10 border-gray-500/30 text-gray-400'}`}>
+                                    <span className="text-sm font-bold">{evolution.gain > 0 ? '+' : ''}{evolution.gain} PDL</span>
+                                </div>
+                            )}
                         </div>
                         <div className="h-[300px] w-full">
                             <PdlChart history={history.history} />
@@ -116,10 +126,45 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
                     Actually, better to stretch grid if empty. But let's keep 2/3 + 1/3 structure.
                 */}
                 <div className="xl:col-span-1 space-y-6">
-                    <Card className="h-full min-h-[400px] flex items-center justify-center border-dashed border-white/10 bg-transparent">
-                        <div className="text-center text-gray-600">
-                            <p className="text-sm font-bold uppercase tracking-widest">Maestria de Campeões</p>
-                            <p className="text-xs mt-1">Em Breve</p>
+                    <Card className="h-full min-h-[400px] flex flex-col">
+                        <div className="p-4 border-b border-white/5">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                <span className="text-amber-400">★</span> Maestrias
+                            </h3>
+                        </div>
+                        <div className="flex-1 p-4 space-y-4">
+                            {history.masteries && history.masteries.length > 0 ? (
+                                history.masteries.map((m) => (
+                                    <div key={m.championId} className="flex items-center gap-4 p-2 hover:bg-white/5 rounded-lg transition-colors">
+                                        <div className="relative">
+                                            {/* Assuming ChampionIcon handles the image URL logic */}
+                                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-500/30">
+                                                <img
+                                                    src={`https://ddragon.leagueoflegends.com/cdn/14.24.1/img/champion/${m.championName}.png`}
+                                                    alt={m.championName}
+                                                    className="w-full h-full object-cover transform scale-110"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).src = 'https://ddragon.leagueoflegends.com/cdn/14.24.1/img/profileicon/29.png'; // Fallback Poro
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="absolute -bottom-1 -right-1 bg-gray-900 text-xs font-bold px-1.5 rounded-full border border-gray-700">
+                                                {m.level}
+                                            </div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="font-bold text-gray-200">{m.championName}</p>
+                                            <p className="text-xs text-emerald-400 font-mono">
+                                                {new Intl.NumberFormat('pt-BR').format(m.points)} pts
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center text-gray-500 py-10">
+                                    <p>Nenhuma maestria encontrada.</p>
+                                </div>
+                            )}
                         </div>
                     </Card>
                 </div>

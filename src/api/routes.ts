@@ -97,7 +97,24 @@ export async function rankingRoutes(fastify: FastifyInstance) {
 
         try {
             const data = await rankingService.getPlayerInsights(puuid, q);
-            if (!data) return reply.status(404).send({ error: 'Insights not available' });
+            if (!data) {
+                // Return empty/default object instead of 404 to satisfy frontend types
+                return {
+                    stats: {
+                        avgScore: "0",
+                        winRate: "0%",
+                        totalGames: 0,
+                        avgKda: "0",
+                        bestScore: 0,
+                        worstScore: 0
+                    },
+                    history: [],
+                    insights: {
+                        consistency: '-',
+                        trend: '-'
+                    }
+                };
+            }
             return data;
         } catch (error) {
             console.error(error);

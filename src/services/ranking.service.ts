@@ -193,7 +193,13 @@ export class RankingService {
      */
     async getPlayerHistory(puuid: string, queueType: 'SOLO' | 'FLEX' = 'SOLO') {
         const player = await prisma.player.findUnique({
-            where: { puuid }
+            where: { puuid },
+            include: {
+                masteries: {
+                    orderBy: { championPoints: 'desc' },
+                    take: 5
+                }
+            } as any
         });
 
         if (!player) return null;
@@ -222,7 +228,13 @@ export class RankingService {
                 tier: h.tier,
                 rank: h.rank,
                 lp: h.lp
-            }))
+            })),
+            masteries: (player as any).masteries?.map((m: any) => ({
+                championId: m.championId,
+                championName: m.championName,
+                level: m.championLevel,
+                points: m.championPoints
+            })) || []
         };
     }
 
@@ -389,6 +401,38 @@ export class RankingService {
             mostActive: mostActive ? { ...mostActive.player, value: mostActive.games, label: 'Partidas' } : null,
             highestDmg: highestDmg ? { ...highestDmg.player, value: (highestDmg.totalDmg / highestDmg.games).toFixed(0), label: 'Dano/Jogo' } : null,
             bestVision: bestVision ? { ...bestVision.player, value: (bestVision.totalVision / bestVision.games).toFixed(0), label: 'Visão/Jogo' } : null
+        };
+    }
+
+    /**
+     * Get PDL Evolution (Start vs Current for Season)
+     */
+    async getPdlEvolution(puuid: string, queueType: 'SOLO' | 'FLEX' = 'SOLO') {
+        const snapshots = await prisma.rankSnapshot.findMany({
+            where: { playerId: puuid, queueType },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        if (snapshots.length === 0) return null;
+
+        const start = snapshots[0];
+        const current = snapshots[snapshots.length - 1];
+
+        // Normalize LP
+        const getVal = (tier: string, lp: number) => {
+            const map: any = { IRON: 0, BRONZE: 400, SILVER: 800, GOLD: 1200, PLATINUM: 1600, EMERALD: 2000, DIAMOND: 2400, MASTER: 2800, GRANDMASTER: 2800, CHALLENGER: 2800 };
+            return (map[tier] || 0) + lp;
+        };
+
+        const startVal = getVal(start.tier, start.lp);
+        const currentVal = getVal(current.tier, current.lp);
+        const gain = currentVal - startVal;
+
+        return {
+            start: { tier: start.tier, rank: start.rank, lp: start.lp, date: start.createdAt },
+            current: { tier: current.tier, rank: current.rank, lp: current.lp, date: current.createdAt },
+            gain,
+            gainLabel: gain > 0 ? `+${gain} LP` : `${gain} LP`
         };
     }
 }

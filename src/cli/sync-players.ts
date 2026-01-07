@@ -67,7 +67,7 @@ async function main() {
             const hoursDiff = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
             const isFresh = hoursDiff < 24;
 
-            if (isFresh && player.profileIconId) {
+            if (false && isFresh && player.profileIconId) {
                 console.log('   -> Dados em cache (24h). Pulando atualização estática (Ícone/Maestria).');
             } else {
                 // Update Summoner Info (Icon & Level)
@@ -128,31 +128,10 @@ async function main() {
             // Rate limit in RiotService is strict (10/s). We can afford to call but sequentially.
             // However, to be super safe: check summonerId
 
-            let summonerId = player.summonerId;
 
-            // Force refresh of summonerId if missing/stale or explicitly ensure it's set
-            if (!summonerId) {
-                console.log(`   -> SummonerID ausente. Buscando via API...`);
-                try {
-                    const s = await riotService.getSummonerByPuuid(puuid);
-                    if (!s || !s.id) {
-                        console.error('   ❌ ERRO: Summoner API não retornou ID!', s);
-                        continue;
-                    }
-                    summonerId = s.id;
-                    await prisma.player.update({ where: { puuid }, data: { summonerId } });
-                } catch (summErr) {
-                    console.error('   ❌ Falha ao buscar Summoner Info:', summErr);
-                    continue;
-                }
-            }
-
-            if (!summonerId) {
-                console.error('   ⚠️ Pulando verificação de liga (Sem SummonerID).');
-                continue;
-            }
-
-            const leagues = await riotService.getLeagueEntries(summonerId);
+            // 5. League V4 (Rank/Tier) - Now using PUUID directly (User feedback)
+            console.log('   -> Verificando Liga (League-V4 by PUUID)...');
+            const leagues = await riotService.getLeagueEntriesByPuuid(puuid);
             for (const queue of ['SOLO', 'FLEX']) {
                 const riotQueueType = queue === 'SOLO' ? 'RANKED_SOLO_5x5' : 'RANKED_FLEX_SR';
                 const entry = leagues.find((l: any) => l.queueType === riotQueueType);
@@ -189,6 +168,25 @@ async function main() {
                         }
                     });
                 }
+
+                // --- CRITICAL FIX: Create RankSnapshot for Ranking Table ---
+                // We create a snapshot for "Now".
+                // Ideally we don't spam snapshots. One per sync/day is fine.
+                // Let's check if we have a snapshot for today ~hour?
+                // For simplicity/robustness regarding "Latest" query: just create one.
+                // Or update the latest one if it was created today?
+                // Let's simple create. The service takes the "latest" by `orderBy: { createdAt: 'desc' }`.
+
+                await prisma.rankSnapshot.create({
+                    data: {
+                        playerId: puuid,
+                        queueType: queue,
+                        tier: entry.tier,
+                        rank: entry.rank,
+                        lp: entry.leaguePoints
+                    }
+                });
+                console.log(`   -> Rank Salvo: ${queue} ${entry.tier} ${entry.rank} ${entry.leaguePoints}pdl`);
             }
 
         } catch (err: any) {

@@ -141,7 +141,11 @@ async function main() {
         // The engine uses: p.teamPosition as Lane if valid.
 
         const validLanes = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'];
-        const lane = validLanes.includes(participant.teamPosition) ? participant.teamPosition : 'MIDDLE';
+        let lane = participant.teamPosition;
+        if (!validLanes.includes(lane)) {
+            lane = (participant as any).individualPosition;
+        }
+        if (!validLanes.includes(lane)) lane = 'MIDDLE';
 
         await prisma.matchScore.create({
             data: {

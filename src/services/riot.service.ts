@@ -11,31 +11,24 @@ export class RiotService {
     constructor(apiKey: string) {
         this.apiKey = apiKey;
 
-        // Strict Rate Limiting (50% of Dev Key Capacity: 20/s, 100/2m -> 10/s, 50/2m)
+        // Safe Rate Limiting (Align with 100 requests every 2 minutes)
+        // 100 reqs / 120 sec = 0.83 reqs/sec => 1 req every 1200ms.
+        // We use 12500ms to be safe.
         this.limiter = new Bottleneck({
-            minTime: 200, // 5 reqs/sec (Safe Buffer)
-            reservoir: 50,
-            reservoirRefreshAmount: 50,
-            reservoirRefreshInterval: 120 * 1000, // 2 minutes
+            minTime: 1250, // 1 request every 1.25 seconds (Guarantees < 100/2min)
             maxConcurrent: 1, // Strict Sequential
         });
 
-        // Global Rate Limit Handling
+        // Retry Strategy for 429
         this.limiter.on('failed', async (error: any, jobInfo) => {
             const status = error.response?.status;
             if (status === 429) {
-                console.error(`🚨 CRITICAL: 429 Rate Limit Exceeded at ${jobInfo.options.id || 'unknown'}. Aborting job.`);
-                // For Jobs/CLI, we want to stop immediately.
-                // Throwing non-retriable error.
-                throw error;
+                const retryAfter = parseInt(error.response?.headers['retry-after'] || '10', 10);
+                console.warn(`⏳ Rate Limit Hit. Waiting ${retryAfter}s...`);
+                return retryAfter * 1000 + 1000; // Wait + Buffer
             }
-            if (status >= 500) {
-                // Retry on server errors? User said "Stability First". 
-                // Simple Retry logic might be okay, but strict control prefers manual intervention or explicit throttle.
-                // Let's not auto-retry blindly.
-                return null;
-            }
-            return null;
+            if (status >= 500) return 5000; // Retry server errors
+            return null; // Don't retry others (404, 403, etc)
         });
 
         this.axiosInstance = axios.create({
@@ -63,7 +56,7 @@ export class RiotService {
                     throw error;
                 }
 
-                console.error(`API Error [${url}]: ${error.response?.status} - ${JSON.stringify(error.response?.data)}`);
+                console.error(`API Error [${url}]: ${error.response?.status} - ${JSON.stringify(error.response?.data, null, 2)}`);
                 throw error;
             }
         });
@@ -122,6 +115,11 @@ export class RiotService {
      */
     async getLeagueEntries(summonerId: string): Promise<any[]> {
         const url = `${this.platformUrl}/lol/league/v4/entries/by-summoner/${summonerId}`;
+        return this.executeRequest<any[]>(url);
+    }
+
+    async getLeagueEntriesByPuuid(puuid: string): Promise<any[]> {
+        const url = `${this.platformUrl}/lol/league/v4/entries/by-puuid/${puuid}`;
         return this.executeRequest<any[]>(url);
     }
 

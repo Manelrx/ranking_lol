@@ -4,7 +4,7 @@ import { calculateMatchScore, MatchDTO, Participant } from '../engine/scoring.en
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const MAX_MATCHES_PER_PLAYER = 20;
+const MAX_MATCHES_PER_PLAYER = 30;
 
 // Extended interface for ingestion (same as in ingest-match.ts)
 interface IngestMatchDTO extends MatchDTO {
@@ -67,16 +67,12 @@ async function main() {
             console.log(`${logPrefix} Processing...`);
 
             try {
-                // Fetch Match IDs (Solo & Flex) - Limit 20 each to be safe, then merge and cap
+                // Fetch Match IDs (Solo & Flex) - limit 100 each
                 const soloIds = await riotService.getRecentMatchIds(player.puuid, 420, MAX_MATCHES_PER_PLAYER);
                 const flexIds = await riotService.getRecentMatchIds(player.puuid, 440, MAX_MATCHES_PER_PLAYER);
 
-                // Merge and dedup
-                const allIds = Array.from(new Set([...soloIds, ...flexIds]));
-                // Slice to strict MAX if needed, though usually we want to process as much recent as allowed. 
-                // User said "Limit matches per player... Evita puxar histórico desnecessário". 
-                // Let's take the top MAX_MATCHES_PER_PLAYER most recent (assuming API returns recent first).
-                const targetIds = allIds.slice(0, MAX_MATCHES_PER_PLAYER);
+                // Merge and dedup (NO SLICE - process everything found)
+                const targetIds = Array.from(new Set([...soloIds, ...flexIds]));
 
                 summary.matchesFound += targetIds.length;
 
@@ -84,25 +80,24 @@ async function main() {
                 for (const matchId of targetIds) {
                     const matchPrefix = `${logPrefix} [Match ${matchId}]`;
 
-                    try {
-                        // Check Database first (Idempotency & Logs)
-                        const existingScore = await prisma.matchScore.findUnique({
-                            where: {
-                                playerId_matchId: {
-                                    playerId: player.puuid,
-                                    matchId: matchId
-                                }
+                    // EFFICIENCY: Check if we already have this match for this player
+                    const existingScore = await prisma.matchScore.findUnique({
+                        where: {
+                            playerId_matchId: {
+                                playerId: player.puuid,
+                                matchId: matchId
                             }
-                        });
-
-                        if (existingScore) {
-                            console.log(`${matchPrefix} already processed`);
-                            summary.matchesAlreadyProcessed++;
-                            continue;
                         }
+                    });
 
+                    if (existingScore) {
+                        // console.log(`${matchPrefix} already processed (skip).`); 
+                        summary.matchesAlreadyProcessed++;
+                        continue;
+                    }
+
+                    try {
                         // Fetch Details
-                        // We cast to our extended interface
                         const match = await riotService.getMatchDetails(matchId) as unknown as IngestMatchDTO;
 
                         // --- CHECKS ---
@@ -130,10 +125,6 @@ async function main() {
                         const result = calculateMatchScore(player.puuid, match);
 
                         if (!result) {
-                            // Can happen if "No opponent found" or other internal checks in engine
-                            // We assume engine logs warnings, calling script logs explicit reason if known or generic.
-                            // The engine currently returns null for < 10min (handled above) or No Opponent.
-                            // We can infer it's likely "no lane opponent" or similar structural issue.
                             console.log(`${matchPrefix} ignored (engine returned null - likely no lane opponent)`);
                             summary.matchesIgnored++;
                             continue;
@@ -154,26 +145,57 @@ async function main() {
                                 matchId: matchId,
                                 queueType: queueType,
                                 gameCreation: new Date(match.info.gameCreation),
-                                gameDuration: correctDuration // Store canonical duration
+                                gameDuration: correctDuration
                             }
                         });
 
-                        // Derive Lane (Redundant but required for schema)
-                        // Using same logic as ingest-match: trust participant position if valid
+                        // Derive Lane
                         const pData = match.info.participants.find(p => p.puuid === player.puuid);
-                        if (!pData) throw new Error("Participant missing in match data"); // Should not happen if score calc worked
+                        if (!pData) throw new Error("Participant missing in match data");
 
                         const validLanes = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'];
-                        const lane = validLanes.includes(pData.teamPosition) ? pData.teamPosition : 'MIDDLE';
+                        let lane = pData.teamPosition;
 
-                        // Ensure we use the properties from the updated interface
-                        // Note: pData is Participant, which has championId/championName now.
+                        if (!validLanes.includes(lane)) {
+                            // Fallback for Flex/Old Matches
+                            lane = (pData as any).individualPosition;
+                        }
+                        if (!validLanes.includes(lane)) lane = 'MIDDLE'; // Ultimate Fallback
 
-                        // Create Score
-                        await prisma.matchScore.create({
-                            data: {
-                                playerId: player.puuid,
-                                matchId: matchId,
+                        // Prepare Data
+                        const scoreData = {
+                            playerId: player.puuid,
+                            matchId: matchId,
+                            lane: lane,
+                            championId: pData.championId,
+                            championName: pData.championName,
+                            queueType: queueType, // Explicit Queue Type
+                            isVictory: result.breakdown.isVictory,
+                            matchScore: result.matchScore,
+                            performanceScore: result.breakdown.performance,
+                            objectivesScore: result.breakdown.objectives,
+                            disciplineScore: result.breakdown.discipline,
+                            metrics: {
+                                ...result.metrics,
+                                kills: pData.kills,
+                                deaths: pData.deaths,
+                                assists: pData.assists,
+                                championName: pData.championName,
+                                championId: pData.championId
+                            } as any,
+                            ratios: result.ratios
+                        };
+
+                        // 3. UPSERT MatchScore
+                        await prisma.matchScore.upsert({
+                            where: {
+                                playerId_matchId: {
+                                    playerId: player.puuid,
+                                    matchId: matchId
+                                }
+                            },
+                            update: {
+                                queueType: queueType,
                                 lane: lane,
                                 championId: pData.championId,
                                 championName: pData.championName,
@@ -182,34 +204,23 @@ async function main() {
                                 performanceScore: result.breakdown.performance,
                                 objectivesScore: result.breakdown.objectives,
                                 disciplineScore: result.breakdown.discipline,
-                                metrics: {
-                                    ...result.metrics,
-                                    kills: pData.kills,
-                                    deaths: pData.deaths,
-                                    assists: pData.assists,
-                                    championName: pData.championName,
-                                    championId: pData.championId
-                                } as any,
+                                metrics: scoreData.metrics,
                                 ratios: result.ratios
-                            }
+                            },
+                            create: scoreData
                         });
 
                         console.log(`${matchPrefix} saved`);
                         summary.matchesSaved++;
 
-                        // Optional: small delay to be nice to API if not bottlenecked enough?
-                        // Bottleneck handles 20/sec, we are fine.
-
                     } catch (matchError: any) {
                         console.error(`${matchPrefix} Error: ${matchError.message}`);
-                        // Do NOT throw, continue to next match
                         summary.errors++;
                     }
                 } // End Match Loop
 
             } catch (playerError: any) {
                 console.error(`${logPrefix} Failed to process player: ${playerError.message}`);
-                // Continue to next player
                 summary.errors++;
             }
         } // End Player Loop
