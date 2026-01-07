@@ -1,0 +1,116 @@
+const API_URL = 'http://localhost:3001/api';
+
+export interface RankingEntry {
+    rank: number;
+    puuid: string;
+    gameName: string;
+    tagLine: string;
+    tier: string;
+    rankDivision: string;
+    lp: number;
+    totalScore: number;
+    avgScore: number;
+    gamesUsed: number;
+    wins: number;
+    losses: number;
+    winRate: string;
+}
+
+export interface EloRanking {
+    tier: string;
+    players: RankingEntry[];
+}
+
+export interface PlayerHistoryEntry {
+    date: string;
+    tier: string;
+    rank: string;
+    lp: number;
+}
+
+export interface PlayerHistory {
+    player: {
+        displayName: string;
+        tier: string;
+        rank: string;
+        lp: number;
+        puuid: string;
+    };
+    history: PlayerHistoryEntry[];
+}
+
+export interface PdlGainEntry {
+    puuid: string;
+    gameName: string;
+    tagLine: string;
+    tier: string;
+    rank: string;
+    lp: number;
+    pdlGain: number;
+    trend: 'UP' | 'DOWN' | 'SAME';
+}
+
+export interface PlayerStats {
+    avgScore: string;
+    winRate: string;
+    totalGames: number;
+    avgKda: string;
+    bestScore: number;
+    worstScore: number;
+}
+
+export interface MatchHistoryEntry {
+    matchId: string;
+    date: string;
+    lane: string;
+    isVictory: boolean;
+    score: number;
+    kda: string; // Formatted
+    kills: number;
+    deaths: number;
+    assists: number;
+    performanceScore: number;
+    objectivesScore: number;
+    disciplineScore: number;
+    championName: string;
+    championId?: number;
+}
+
+export interface PlayerInsights {
+    stats: PlayerStats;
+    history: MatchHistoryEntry[];
+    insights: {
+        consistency: string;
+        trend: string;
+    };
+}
+
+export async function getSeasonRanking(queue: 'SOLO' | 'FLEX' = 'SOLO', limit: number = 100): Promise<RankingEntry[]> {
+    const res = await fetch(`${API_URL}/ranking/season?queue=${queue}&limit=${limit}`);
+    if (!res.ok) throw new Error('Failed to fetch ranking');
+    return res.json();
+}
+
+export async function getRankingByElo(queue: 'SOLO' | 'FLEX', tier: string, limit: number = 100): Promise<EloRanking> {
+    const res = await fetch(`${API_URL}/ranking/season/by-elo?queue=${queue}&tier=${tier}&limit=${limit}`);
+    if (!res.ok) throw new Error('Failed to fetch elo ranking');
+    return res.json();
+}
+
+export async function getPdlGainRanking(queue: 'SOLO' | 'FLEX' = 'SOLO', limit: number = 20): Promise<PdlGainEntry[]> {
+    const res = await fetch(`${API_URL}/ranking/pdl-gain?queue=${queue}&limit=${limit}`);
+    if (!res.ok) throw new Error('Failed to fetch PDL ranking');
+    return res.json();
+}
+
+export async function getPlayerHistory(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<PlayerHistory> {
+    const res = await fetch(`${API_URL}/player/${puuid}/history?queue=${queue}`);
+    if (!res.ok) throw new Error('Failed to fetch player history');
+    return res.json();
+}
+
+export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<PlayerInsights> {
+    const res = await fetch(`${API_URL}/player/${puuid}/insights?queue=${queue}`);
+    if (!res.ok) throw new Error('Failed to fetch player insights');
+    return res.json();
+}

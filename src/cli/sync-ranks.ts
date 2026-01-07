@@ -1,4 +1,4 @@
-// @ts-nocheck
+// 
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { RiotService } from '../services/riot.service';
@@ -11,13 +11,15 @@ const QUEUE_MAP = {
     'RANKED_FLEX_SR': 'FLEX'
 };
 
-/*
-    Sync Ranks Script (Rebuilt)
-    1. Loop active players
-    2. Refresh PUUID (Critical for data integrity)
-    3. Fetch SummonerID
-    4. Sync Ranks
-*/
+interface SummonerDTO {
+    id: string;
+    accountId: string;
+    puuid: string;
+    name: string;
+    profileIconId: number;
+    revisionDate: number;
+    summonerLevel: number;
+}
 
 async function main() {
     console.log(`\n🔄 Starting Sync Ranks Job...`);
@@ -38,50 +40,35 @@ async function main() {
             await new Promise(r => setTimeout(r, 200));
 
             try {
-                // 1. Always Refresh PUUID (The "Fix")
-                // This guarantees we have the correct string for the SummonerV4 call
-                let currentPuuid = player.puuid;
+                // 1. Verify PUUID Integrity
+                const freshPuuid = await riotService.getPuuid(player.gameName, player.tagLine);
+
+                if (freshPuuid !== player.puuid) {
+                    console.error(`[CRITICAL] PUUID Mismatch for ${player.gameName}. DB=${player.puuid} API=${freshPuuid}`);
+                    console.error(`Skipping sync to prevent data corruption.`);
+                    continue;
+                }
+
+                // 2. Fetch Summoner ID (using validated PUUID)
                 let summonerId = player.summonerId;
 
-                try {
-                    // Try to fetch Summoner directly first? 
-                    // No, based on debugging, we MUST ensure the PUUID is fresh/correct if we had issues.
-                    // But to be efficient, let's try stored PUUID first, if it fails, THEN refresh.
-                    // WAIT. The debugging showed "DB PUUID" failing and "Fresh PUUID" working even if strings look equal.
-                    // So we MUST Refresh.
-                    const freshPuuid = await riotService.getPuuid(player.gameName, player.tagLine);
+                // Explicitly cast to internal interface to help TS/Runtime boundary
+                const sumData = await riotService.getSummonerByPuuid(player.puuid) as SummonerDTO;
 
-                    if (freshPuuid !== currentPuuid) {
-                        console.log(`[FIX] PUUID Mismatch/Refresh for ${player.gameName}`);
-                        await prisma.player.update({
-                            where: { puuid: currentPuuid },
-                            data: { puuid: freshPuuid }
-                        });
-                        currentPuuid = freshPuuid;
-                    }
+                if (!sumData || !sumData.id) {
+                    // Log keys to help debug "Phantom ID" if it happens again
+                    if (sumData) console.log("Summoner Keys:", Object.keys(sumData));
+                    throw new Error(`API returned invalid Summoner Data (Missing ID) for ${player.gameName}`);
+                }
 
-                    // Now Fetch Summoner ID using the (possibly updated) PUUID
-                    const sumData = await riotService.getSummonerByPuuid(currentPuuid);
-                    const sDataAny = sumData as any;
-                    if (!sDataAny || !sDataAny.id) {
-                        // Should not happen with fresh PUUID, but if it does...
-                        throw new Error(`API returned invalid Summoner Data (Missing ID) for ${player.gameName}`);
-                    }
+                summonerId = sumData.id;
 
-                    summonerId = sDataAny.id;
-
-                    // Update DB with SummonerID if missing or changed
-                    if (summonerId !== player.summonerId) {
-                        await prisma.player.update({
-                            where: { puuid: currentPuuid },
-                            data: { summonerId }
-                        });
-                        // console.log(`[INIT] SummonerID Resolved.`);
-                    }
-
-                } catch (e: any) {
-                    console.error(`[WARN] Failed to resolve identity for ${player.gameName}: ${e.message}`);
-                    continue; // Skip this player if we can't identify them
+                // Update DB with SummonerID only (NEVER update PUUID here)
+                if (summonerId !== player.summonerId) {
+                    await prisma.player.update({
+                        where: { puuid: player.puuid },
+                        data: { summonerId }
+                    });
                 }
 
                 // 2. Fetch League Entries
@@ -104,7 +91,7 @@ async function main() {
                     }
 
                     const lastSnap = await prisma.rankSnapshot.findFirst({
-                        where: { playerId: currentPuuid, queueType: mappedQueue },
+                        where: { playerId: player.puuid, queueType: mappedQueue },
                         orderBy: { createdAt: 'desc' }
                     });
 
@@ -114,7 +101,7 @@ async function main() {
                     if (currentHash !== lastHash) {
                         await prisma.rankSnapshot.create({
                             data: {
-                                playerId: currentPuuid,
+                                playerId: player.puuid,
                                 queueType: mappedQueue,
                                 tier: entry.tier,
                                 rank: entry.rank,
@@ -130,7 +117,7 @@ async function main() {
                 // 4. Update Player Model (SOLO)
                 if (soloEntry) {
                     await prisma.player.update({
-                        where: { puuid: currentPuuid },
+                        where: { puuid: player.puuid },
                         data: {
                             tier: soloEntry.tier,
                             rank: soloEntry.rank

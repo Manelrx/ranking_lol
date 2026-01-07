@@ -20,6 +20,8 @@ export interface Participant {
     teamId: number;
     teamPosition: string; // "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"
     win: boolean;
+    championId: number;
+    championName: string;
 
     // Base Stats
     kills: number;
@@ -71,7 +73,7 @@ export interface MatchScoreResult {
         capApplied?: string;
     };
     metrics: {
-        [key: string]: number; // Raw per-minute or ratio values
+        [key: string]: any; // Raw per-minute, ratio values, or metadata (championName)
     };
     ratios: {
         [key: string]: number; // The computed ratios vs opponent

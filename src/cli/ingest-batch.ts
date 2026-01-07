@@ -164,18 +164,30 @@ async function main() {
                         const validLanes = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'];
                         const lane = validLanes.includes(pData.teamPosition) ? pData.teamPosition : 'MIDDLE';
 
+                        // Ensure we use the properties from the updated interface
+                        // Note: pData is Participant, which has championId/championName now.
+
                         // Create Score
                         await prisma.matchScore.create({
                             data: {
                                 playerId: player.puuid,
                                 matchId: matchId,
                                 lane: lane,
+                                championId: pData.championId,
+                                championName: pData.championName,
                                 isVictory: result.breakdown.isVictory,
                                 matchScore: result.matchScore,
                                 performanceScore: result.breakdown.performance,
                                 objectivesScore: result.breakdown.objectives,
                                 disciplineScore: result.breakdown.discipline,
-                                metrics: result.metrics,
+                                metrics: {
+                                    ...result.metrics,
+                                    kills: pData.kills,
+                                    deaths: pData.deaths,
+                                    assists: pData.assists,
+                                    championName: pData.championName,
+                                    championId: pData.championId
+                                } as any,
                                 ratios: result.ratios
                             }
                         });

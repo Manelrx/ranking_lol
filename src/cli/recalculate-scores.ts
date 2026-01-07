@@ -5,15 +5,8 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Extended interface (same as ingest scripts)
-interface IngestMatchDTO extends MatchDTO {
-    info: {
-        gameDuration: number;
-        gameCreation: number;
-        queueId: number;
-        participants: Participant[];
-    };
-}
+// Extended interface removed to avoid conflicts
+// interface IngestMatchDTO ...
 
 // Helper: Canonical Duration
 const getMatchDurationSeconds = (participants: Participant[]): number => {
@@ -49,7 +42,7 @@ async function main() {
                 // Commented out to reduce noise, usually we want to see progress though.
                 process.stdout.write(`Processing ${score.player.gameName} - ${score.matchId}... `);
 
-                const match = await riotService.getMatchDetails(score.matchId) as unknown as IngestMatchDTO;
+                const match = await riotService.getMatchDetails(score.matchId) as any;
 
                 // FIX: Duration
                 const correctDuration = getMatchDurationSeconds(match.info.participants);
@@ -61,18 +54,18 @@ async function main() {
                 let targetPuuid = score.playerId;
 
                 try {
-                    newResult = calculateMatchScore(targetPuuid, match);
+                    newResult = calculateMatchScore(targetPuuid, match as any);
                 } catch (calcErr: any) {
                     if (calcErr.message === "Participant not found") {
                         // Fallback: Try to find by GameName
-                        const pByName = match.info.participants.find(p =>
+                        const pByName = match.info.participants.find((p: any) =>
                             p.riotIdGameName.toLowerCase() === score.player.gameName.toLowerCase()
                         );
 
                         if (pByName) {
                             // console.log(`\nNotice: PUUID mismatch for ${score.player.gameName}. Using PUUID from match context.`);
                             targetPuuid = pByName.puuid;
-                            newResult = calculateMatchScore(targetPuuid, match);
+                            newResult = calculateMatchScore(targetPuuid, match as any);
 
                             // Optional: Schedule a fix for Player PUUID? 
                             // For now, we just solve the score recalculation.
@@ -94,28 +87,52 @@ async function main() {
                 const newScore = newResult.matchScore;
                 const oldScore = score.matchScore;
 
-                if (newScore !== oldScore) {
-                    console.log(`CHANGE: ${oldScore} -> ${newScore}`);
+                // Get Champion Data
+                const participant = match.info.participants.find((p: any) => p.puuid === targetPuuid);
+                const championId = participant?.championId;
+                const championName = participant?.championName;
 
-                    if (!isDryRun) {
-                        await prisma.matchScore.update({
-                            where: { id: score.id },
-                            data: {
-                                matchScore: newResult.matchScore,
-                                performanceScore: newResult.breakdown.performance,
-                                objectivesScore: newResult.breakdown.objectives,
-                                disciplineScore: newResult.breakdown.discipline,
-                                isVictory: newResult.breakdown.isVictory, // Should not change, but safety
-                                metrics: newResult.metrics,
-                                ratios: newResult.ratios
-                            }
-                        });
-                    }
-                    updatedCount++;
-                } else {
-                    console.log('No Change');
-                    unchangedCount++;
+                // Always update if we need to backfill champion data (which is true if we are running this now)
+                // or if score changed.
+                // Since we can't easily check if championId is missing (types), we update if !DryRun.
+
+                const hasChanged = newScore !== oldScore;
+                console.log(hasChanged ? `CHANGE: ${oldScore} -> ${newScore}` : `Score Unchanged (Updating Data)`);
+
+                if (!isDryRun) {
+                    await prisma.matchScore.update({
+                        where: { id: score.id },
+                        data: {
+                            matchScore: newResult.matchScore,
+                            performanceScore: newResult.breakdown.performance,
+                            objectivesScore: newResult.breakdown.objectives,
+                            disciplineScore: newResult.breakdown.discipline,
+                            isVictory: newResult.breakdown.isVictory,
+                            // New Fields Population
+                            kills: participant?.kills ?? 0,
+                            deaths: participant?.deaths ?? 0,
+                            assists: participant?.assists ?? 0,
+                            championId: championId,
+                            championName: championName,
+                            queueType: match.info.queueId === 440 ? 'FLEX' : 'SOLO', // Best guess backfill
+                            lane: participant?.teamPosition ?? 'MIDDLE', // Backfill lane
+
+                            metrics: {
+                                ...newResult.metrics,
+                                kills: participant?.kills ?? 0,
+                                deaths: participant?.deaths ?? 0,
+                                assists: participant?.assists ?? 0,
+                                championName: championName,
+                                championId: championId
+                            } as any,
+                            ratios: newResult.ratios
+                        }
+                    });
                 }
+
+                if (hasChanged) updatedCount++;
+                else unchangedCount++; // Technically we updated DB rows, but score didn't change. 
+                // Let's count as Updated for clarity? No, keep semantics.
 
             } catch (err: any) {
                 console.error(`\nError processing ${score.matchId}: ${err.message}`);

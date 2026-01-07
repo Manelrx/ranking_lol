@@ -46,12 +46,19 @@ export class RiotService {
     }
 
     /**
-     * Resolves GameName + TagLine to PUUID (Account-V1)
+     * Resolves GameName + TagLine to Account DTO (Account-V1)
+     */
+    async getAccountByRiotId(gameName: string, tagLine: string): Promise<{ puuid: string; gameName: string; tagLine: string }> {
+        const url = `${this.regionUrl}/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+        return this.executeRequest<{ puuid: string; gameName: string; tagLine: string }>(url);
+    }
+
+    /**
+     * Resolves GameName + TagLine to PUUID (Legacy Helper)
      */
     async getPuuid(gameName: string, tagLine: string): Promise<string> {
-        const url = `${this.regionUrl}/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
-        const data = await this.executeRequest<{ puuid: string }>(url);
-        return data.puuid;
+        const account = await this.getAccountByRiotId(gameName, tagLine);
+        return account.puuid;
     }
 
     /**
@@ -91,6 +98,16 @@ export class RiotService {
      */
     async getLeagueEntries(summonerId: string): Promise<any[]> {
         const url = `${this.platformUrl}/lol/league/v4/entries/by-summoner/${summonerId}`;
+        return this.executeRequest<any[]>(url);
+    }
+
+    /**
+     * Get Champion Mastery (Mastery-V4)
+     * Returns top champions for a player
+     */
+    async getChampionMasteries(puuid: string, count: number = 10): Promise<any[]> {
+        // Correct endpoint for Mastery V4
+        const url = `${this.platformUrl}/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=${count}`;
         return this.executeRequest<any[]>(url);
     }
 }

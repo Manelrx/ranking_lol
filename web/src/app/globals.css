@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #09090b;
+  /* Zinc 950 - Deeper dark */
+  --color-surface: #18181b;
+  /* Zinc 900 */
+  --color-surface-hover: #27272a;
+  /* Zinc 800 */
+  --color-surface-glass: rgba(24, 24, 27, 0.7);
+  /* Glass effect base */
+
+  --color-border: #27272a;
+  /* Zinc 800 */
+  --color-border-hover: #3f3f46;
+
+  --color-primary: #6366f1;
+  /* Indigo 500 */
+  --color-primary-hover: #4f46e5;
+  --color-primary-glow: rgba(99, 102, 241, 0.5);
+
+  --color-success: #10b981;
+  /* Emerald 500 */
+  --color-danger: #ef4444;
+  /* Red 500 */
+  --color-warning: #f59e0b;
+  /* Amber 500 */
+  --color-neutral: #a1a1aa;
+  /* Zinc 400 */
+
+  --color-text-primary: #fafafa;
+  /* Zinc 50 */
+  --color-text-secondary: #a1a1aa;
+  /* Zinc 400 */
+
+  /* Rank Colors */
+  --color-rank-iron: #514b49;
+  --color-rank-bronze: #8c513a;
+  --color-rank-silver: #8b9bb4;
+  --color-rank-gold: #e5c15e;
+  --color-rank-platinum: #259fa9;
+  --color-rank-emerald: #10b981;
+  --color-rank-diamond: #576bce;
+  --color-rank-master: #9d48e0;
+  --color-rank-grandmaster: #cd4545;
+  --color-rank-challenger: #f4c874;
+
+  --font-sans: var(--font-geist-sans);
+
+  --animate-fade-in-up: fade-in-up 0.5s ease-out forwards;
+
+  @keyframes fade-in-up {
+    0% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-hover:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(39, 39, 42, 0.8);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Custom Scrollbar for Dashboard feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral);
+}

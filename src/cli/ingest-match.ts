@@ -147,13 +147,30 @@ async function main() {
             data: {
                 playerId: puuid,
                 matchId: matchId,
+                // New Fields Population
+                queueType: queueType,
                 lane: lane,
+                championId: participant.championId,
+                championName: participant.championName,
+
+                // Stats
+                kills: participant.kills,
+                deaths: participant.deaths,
+                assists: participant.assists,
+
                 isVictory: result.breakdown.isVictory,
                 matchScore: result.matchScore,
                 performanceScore: result.breakdown.performance,
                 objectivesScore: result.breakdown.objectives,
                 disciplineScore: result.breakdown.discipline,
-                metrics: result.metrics,
+                metrics: {
+                    ...result.metrics,
+                    kills: participant.kills,
+                    deaths: participant.deaths,
+                    assists: participant.assists,
+                    championName: participant.championName,
+                    championId: participant.championId
+                } as any,
                 ratios: result.ratios
             }
         });

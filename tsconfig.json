@@ -19,6 +19,7 @@
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
+    "esModuleInterop": true,
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -36,6 +37,11 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "web",
+    "node_modules",
+    "src/cli"
+  ]
 }
