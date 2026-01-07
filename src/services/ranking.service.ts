@@ -7,6 +7,10 @@ export interface RankingEntry {
     puuid: string;
     gameName: string;
     tagLine: string;
+    // Identity
+    profileIconId: number | null;
+    summonerLevel: number | null;
+    // Stats
     tier: string;
     rankDivision: string;
     lp: number;
@@ -16,6 +20,13 @@ export interface RankingEntry {
     wins: number;
     losses: number;
     winRate: string;
+    // Main Champion
+    mainChampion?: {
+        id: number;
+        name: string;
+        points: number;
+        level: number;
+    };
 }
 
 export class RankingService {
@@ -26,9 +37,15 @@ export class RankingService {
      * CRITICAL: Uses RankSnapshot for Tier/Rank, NOT Player model.
      */
     async getSeasonRanking(queueType: 'SOLO' | 'FLEX' = 'SOLO', limit: number = 100): Promise<RankingEntry[]> {
-        // 1. Get Active Players
+        // 1. Get Active Players (Include Masteries)
         const players = await prisma.player.findMany({
-            where: { isActive: true }
+            where: { isActive: true },
+            include: {
+                masteries: {
+                    orderBy: { championPoints: 'desc' },
+                    take: 1
+                }
+            }
         });
 
         const ranking: RankingEntry[] = [];
@@ -49,7 +66,9 @@ export class RankingService {
                 }
             });
 
-            // If no games and no rank, skip
+            // If no games and no rank, skip (unless we want to show all players in /players? Logic might differ)
+            // For RANKING, we skip. For /players directory, we might want them.
+            // But this method is 'getSeasonRanking'. Use strict rule.
             if (scores.length === 0 && !snapshot) continue;
 
             const totalScore = scores.reduce((acc, s) => acc + s.matchScore, 0);
@@ -57,11 +76,20 @@ export class RankingService {
             const wins = scores.filter(s => s.isVictory).length;
             const losses = scores.length - wins;
 
+            const mainChamp = player.masteries[0] ? {
+                id: player.masteries[0].championId,
+                name: player.masteries[0].championName,
+                points: player.masteries[0].championPoints,
+                level: player.masteries[0].championLevel
+            } : undefined;
+
             ranking.push({
                 rank: 0, // Assigned later
                 puuid: player.puuid,
                 gameName: player.gameName,
                 tagLine: player.tagLine,
+                profileIconId: player.profileIconId,
+                summonerLevel: player.summonerLevel,
                 tier: snapshot?.tier || 'UNRANKED',
                 rankDivision: snapshot?.rank || '',
                 lp: snapshot?.lp || 0,
@@ -70,7 +98,8 @@ export class RankingService {
                 gamesUsed: scores.length,
                 wins,
                 losses,
-                winRate: scores.length > 0 ? ((wins / scores.length) * 100).toFixed(1) + '%' : '0%'
+                winRate: scores.length > 0 ? ((wins / scores.length) * 100).toFixed(1) + '%' : '0%',
+                mainChampion: mainChamp
             });
         }
 
@@ -183,7 +212,9 @@ export class RankingService {
                 tier: currentSnapshot?.tier || 'UNRANKED',
                 rank: currentSnapshot?.rank || '',
                 lp: currentSnapshot?.lp || 0,
-                puuid: player.puuid
+                puuid: player.puuid,
+                profileIconId: player.profileIconId,
+                summonerLevel: player.summonerLevel
             },
             history: history.map(h => ({
                 date: h.createdAt.toISOString(),

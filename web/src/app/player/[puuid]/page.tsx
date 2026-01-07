@@ -78,6 +78,8 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
                 tier={history.player.tier}
                 rank={history.player.rank}
                 lp={history.player.lp}
+                profileIconId={history.player.profileIconId}
+                summonerLevel={history.player.summonerLevel}
                 queueType={queue}
                 onQueueChange={handleQueueChange}
             />

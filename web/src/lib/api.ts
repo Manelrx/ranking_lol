@@ -5,6 +5,10 @@ export interface RankingEntry {
     puuid: string;
     gameName: string;
     tagLine: string;
+    // Identity
+    profileIconId?: number | null;
+    summonerLevel?: number | null;
+    // Stats
     tier: string;
     rankDivision: string;
     lp: number;
@@ -14,6 +18,13 @@ export interface RankingEntry {
     wins: number;
     losses: number;
     winRate: string;
+    // Main Champion
+    mainChampion?: {
+        id: number;
+        name: string;
+        points: number;
+        level: number;
+    };
 }
 
 export interface EloRanking {
@@ -35,6 +46,8 @@ export interface PlayerHistory {
         rank: string;
         lp: number;
         puuid: string;
+        profileIconId?: number | null;
+        summonerLevel?: number | null;
     };
     history: PlayerHistoryEntry[];
 }
@@ -109,8 +122,31 @@ export async function getPlayerHistory(puuid: string, queue: 'SOLO' | 'FLEX' = '
     return res.json();
 }
 
+export interface HighlightPlayer {
+    puuid: string;
+    gameName: string;
+    tagLine: string;
+    profileIconId?: number;
+    value: string | number;
+    label: string;
+}
+
+export interface WeeklyHighlights {
+    period: { start: string; end: string };
+    mvp: HighlightPlayer | null;
+    mostActive: HighlightPlayer | null;
+    highestDmg: HighlightPlayer | null;
+    bestVision: HighlightPlayer | null;
+}
+
 export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<PlayerInsights> {
     const res = await fetch(`${API_URL}/player/${puuid}/insights?queue=${queue}`);
     if (!res.ok) throw new Error('Failed to fetch player insights');
+    return res.json();
+}
+
+export async function getHighlights(queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<WeeklyHighlights> {
+    const res = await fetch(`${API_URL}/ranking/highlights?queue=${queue}`);
+    if (!res.ok) throw new Error('Failed to fetch highlights');
     return res.json();
 }

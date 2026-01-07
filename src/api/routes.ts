@@ -74,6 +74,21 @@ export async function rankingRoutes(fastify: FastifyInstance) {
         }
     });
 
+    // 6. Weekly Highlights
+    interface HighlightsQuery { queue?: string; }
+    fastify.get<{ Querystring: HighlightsQuery }>('/api/ranking/highlights', async (request, reply) => {
+        const { queue = 'SOLO' } = request.query;
+        const q = queue === 'FLEX' ? 'FLEX' : 'SOLO';
+
+        try {
+            const data = await rankingService.getWeeklyHighlights(q);
+            return data;
+        } catch (error) {
+            console.error(error);
+            reply.status(500).send({ error: 'Internal Server Error' });
+        }
+    });
+
     // 5. Player Insights
     fastify.get<{ Params: PlayerParams, Querystring: HistoryQuery }>('/api/player/:puuid/insights', async (request, reply) => {
         const { puuid } = request.params;

@@ -1,6 +1,6 @@
 'use client';
-import { User } from 'lucide-react';
 import { EloBadge } from './EloBadge';
+import { PlayerAvatar } from './ui/PlayerAvatar';
 
 interface PlayerHeaderProps {
     displayName: string;
@@ -9,6 +9,8 @@ interface PlayerHeaderProps {
     tier: string;
     rank: string;
     lp: number;
+    profileIconId?: number | null;
+    summonerLevel?: number | null;
     queueType: 'SOLO' | 'FLEX';
     onQueueChange: (queue: 'SOLO' | 'FLEX') => void;
 }
@@ -20,12 +22,14 @@ export function PlayerHeader({
     tier,
     rank,
     lp,
+    profileIconId,
+    summonerLevel,
     queueType,
     onQueueChange
 }: PlayerHeaderProps) {
     return (
         <div className="relative overflow-hidden rounded-2xl glass border-t border-[rgba(255,255,255,0.08)] p-8 mb-6 shadow-2xl">
-            {/* Background Glow based on Tier? Maybe later. For now generic premium glow */}
+            {/* Background Glow */}
             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--color-primary)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -33,15 +37,15 @@ export function PlayerHeader({
                 {/* Left: Avatar & Info */}
                 <div className="flex items-center gap-6">
                     <div className="relative group">
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-surface-hover)] p-[2px] shadow-lg ring-1 ring-white/10">
-                            <div className="w-full h-full rounded-full bg-[var(--color-surface)] flex items-center justify-center overflow-hidden">
-                                <span className="text-3xl font-bold text-[var(--color-text-secondary)] group-hover:text-white transition-colors">
-                                    {gameName.charAt(0).toUpperCase()}
-                                </span>
-                            </div>
-                        </div>
+                        <PlayerAvatar
+                            profileIconId={profileIconId}
+                            summonerLevel={summonerLevel}
+                            size="xl"
+                            className="w-24 h-24 shadow-2xl border-4 border-white/5"
+                            ringColor={tier === 'CHALLENGER' ? 'border-yellow-400' : undefined}
+                        />
                         {/* Queue Indicator Badge */}
-                        <div className={`absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-[var(--color-surface)] ${queueType === 'SOLO' ? 'bg-blue-500' : 'bg-purple-500'}`}>
+                        <div className={`absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-[var(--color-surface)] ${queueType === 'SOLO' ? 'bg-blue-500' : 'bg-purple-500'}`}>
                             <span className="text-[10px] font-bold text-white mb-[1px]">
                                 {queueType === 'SOLO' ? 'S' : 'F'}
                             </span>
