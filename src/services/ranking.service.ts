@@ -45,7 +45,7 @@ export class RankingService {
                     orderBy: { championPoints: 'desc' },
                     take: 1
                 }
-            }
+            } as any
         });
 
         const ranking: RankingEntry[] = [];
@@ -63,7 +63,7 @@ export class RankingService {
                 where: {
                     playerId: player.puuid,
                     queueType: queueType
-                }
+                } as any
             });
 
             // If no games and no rank, skip (unless we want to show all players in /players? Logic might differ)
@@ -76,11 +76,12 @@ export class RankingService {
             const wins = scores.filter(s => s.isVictory).length;
             const losses = scores.length - wins;
 
-            const mainChamp = player.masteries[0] ? {
-                id: player.masteries[0].championId,
-                name: player.masteries[0].championName,
-                points: player.masteries[0].championPoints,
-                level: player.masteries[0].championLevel
+            const masteries = (player as any).masteries;
+            const mainChamp = masteries?.[0] ? {
+                id: masteries[0].championId,
+                name: masteries[0].championName,
+                points: masteries[0].championPoints,
+                level: masteries[0].championLevel
             } : undefined;
 
             ranking.push({
@@ -233,11 +234,11 @@ export class RankingService {
         if (!player) return null;
 
         // Optimized Query using denormalized queueType and fields
-        const scores = await prisma.matchScore.findMany({
+        const scores: any[] = await prisma.matchScore.findMany({
             where: {
                 playerId: puuid,
                 queueType: queueType // Direct filter (Index friendly)
-            },
+            } as any,
             orderBy: { createdAt: 'desc' },
             include: { match: true }
         });
@@ -302,6 +303,92 @@ export class RankingService {
                 consistency: 'Alta', // PT-BR
                 trend: 'UP'
             }
+        };
+    }
+
+    /**
+     * Get Weekly Highlights
+     * Returns: Top KDA, Most Games, Best Support, Highest Dmg
+     */
+    async getWeeklyHighlights(queueType: 'SOLO' | 'FLEX' = 'SOLO') {
+        const now = new Date();
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+        const monday = new Date(now.setDate(diff));
+        monday.setHours(0, 0, 0, 0);
+
+        // Fetch all scores for this week
+        const scores: any[] = await prisma.matchScore.findMany({
+            where: {
+                queueType,
+                createdAt: { gte: monday }
+            } as any,
+            include: { player: true }
+        });
+
+        if (scores.length === 0) return null;
+
+        // Group by Player
+        const playerStats: Record<string, {
+            player: any,
+            games: number,
+            wins: number,
+            kills: number,
+            deaths: number,
+            assists: number,
+            totalDmg: number,
+            totalVision: number
+        }> = {};
+
+        scores.forEach(s => {
+            if (!playerStats[s.playerId]) {
+                playerStats[s.playerId] = {
+                    player: s.player,
+                    games: 0, wins: 0,
+                    kills: 0, deaths: 0, assists: 0,
+                    totalDmg: 0, totalVision: 0
+                };
+            }
+            const p = playerStats[s.playerId];
+            p.games++;
+            if (s.isVictory) p.wins++;
+            p.kills += s.kills;
+            p.deaths += s.deaths;
+            p.assists += s.assists;
+
+            // Extract JSON metrics safely
+            const metrics = s.metrics as any;
+            p.totalDmg += (metrics?.totalDamageDealtToChampions || 0);
+            p.totalVision += (metrics?.visionScore || 0);
+        });
+
+        const statsArray = Object.values(playerStats);
+        const minGames = 2; // Min valid for highlights
+        const validStats = statsArray.filter(s => s.games >= minGames);
+
+        // 1. MVP (Highest Score? Or KDA?) -> Let's use KDA for MVP Highlight
+        const bestKda = validStats.sort((a, b) => {
+            const kdaA = a.deaths === 0 ? (a.kills + a.assists) : (a.kills + a.assists) / a.deaths;
+            const kdaB = b.deaths === 0 ? (b.kills + b.assists) : (b.kills + b.assists) / b.deaths;
+            return kdaB - kdaA;
+        })[0];
+
+        // 2. Most Active
+        const mostActive = statsArray.sort((a, b) => b.games - a.games)[0];
+
+        // 3. Highest Damage (Avg per game)
+        const highestDmg = validStats.sort((a, b) => (b.totalDmg / b.games) - (a.totalDmg / a.games))[0];
+
+        // 4. Best Support (Vision + Assists weight)
+        // Simplified: Avg Vision Score
+        const bestVision = validStats.sort((a, b) => (b.totalVision / b.games) - (a.totalVision / a.games))[0];
+
+        return {
+            period: { start: monday, end: new Date() },
+            mvp: bestKda ? { ...bestKda.player, value: ((bestKda.kills + bestKda.assists) / (bestKda.deaths || 1)).toFixed(2), label: 'KDA' } : null,
+            mostActive: mostActive ? { ...mostActive.player, value: mostActive.games, label: 'Partidas' } : null,
+            highestDmg: highestDmg ? { ...highestDmg.player, value: (highestDmg.totalDmg / highestDmg.games).toFixed(0), label: 'Dano/Jogo' } : null,
+            bestVision: bestVision ? { ...bestVision.player, value: (bestVision.totalVision / bestVision.games).toFixed(0), label: 'Visão/Jogo' } : null
         };
     }
 }

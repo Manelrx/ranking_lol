@@ -16,11 +16,13 @@ interface IngestMatchDTO extends MatchDTO {
     };
 }
 
+import { SEASON_CONFIG } from '../config/season';
+
 // Helper: Season Validation
 const isInActiveSeason = (gameCreation: number): boolean => {
-    // Configurable Season Dates (Season 2026)
-    const seasonStart = new Date('2026-01-01T00:00:00Z').getTime();
-    const seasonEnd = new Date('2026-12-31T23:59:59Z').getTime();
+    // Configurable Season Dates (from src/config/season.ts)
+    const seasonStart = new Date(`${SEASON_CONFIG.START_DATE}T00:00:00Z`).getTime();
+    const seasonEnd = new Date(`${SEASON_CONFIG.END_DATE}T23:59:59Z`).getTime();
     return gameCreation >= seasonStart && gameCreation <= seasonEnd;
 };
 

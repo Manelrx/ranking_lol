@@ -11,13 +11,31 @@ export class RiotService {
     constructor(apiKey: string) {
         this.apiKey = apiKey;
 
-        // Limits: 20 reqs/1sec, 100 reqs/2min. Using conservative settings.
+        // Strict Rate Limiting (50% of Dev Key Capacity: 20/s, 100/2m -> 10/s, 50/2m)
         this.limiter = new Bottleneck({
-            minTime: 50, // Max 20/sec
-            reservoir: 20,
-            reservoirRefreshAmount: 20,
-            reservoirRefreshInterval: 1000,
-            maxConcurrent: 1, // Sequential to be safe
+            minTime: 200, // 5 reqs/sec (Safe Buffer)
+            reservoir: 50,
+            reservoirRefreshAmount: 50,
+            reservoirRefreshInterval: 120 * 1000, // 2 minutes
+            maxConcurrent: 1, // Strict Sequential
+        });
+
+        // Global Rate Limit Handling
+        this.limiter.on('failed', async (error: any, jobInfo) => {
+            const status = error.response?.status;
+            if (status === 429) {
+                console.error(`🚨 CRITICAL: 429 Rate Limit Exceeded at ${jobInfo.options.id || 'unknown'}. Aborting job.`);
+                // For Jobs/CLI, we want to stop immediately.
+                // Throwing non-retriable error.
+                throw error;
+            }
+            if (status >= 500) {
+                // Retry on server errors? User said "Stability First". 
+                // Simple Retry logic might be okay, but strict control prefers manual intervention or explicit throttle.
+                // Let's not auto-retry blindly.
+                return null;
+            }
+            return null;
         });
 
         this.axiosInstance = axios.create({
@@ -30,17 +48,23 @@ export class RiotService {
     private async executeRequest<T>(url: string): Promise<T> {
         return this.limiter.schedule(async () => {
             try {
+                // Pre-flight check could go here if we tracked global state, 
+                // but diff-check is mostly business logic (DB vs API).
+
                 const response = await this.axiosInstance.get<T>(url);
                 return response.data;
             } catch (error: any) {
                 if (error.response?.status === 429) {
-                    console.warn('Rate Limit Exceeded. Warinig: Production should handle Retry-After header.');
+                    // Re-throw to be caught by limiter 'failed' listener or caller
+                    throw error;
                 }
-                // Enhanced Logging
-                if (error.response?.data?.status) {
-                    console.error(`API Error Detail: ${JSON.stringify(error.response.data.status)}`);
+                if (error.response?.status === 404) {
+                    // 404 is valid result (not found), don't abort, just throw
+                    throw error;
                 }
-                throw new Error(`Riot API Error [${url}]: ${error.response?.status} - ${error.response?.statusText}`);
+
+                console.error(`API Error [${url}]: ${error.response?.status} - ${JSON.stringify(error.response?.data)}`);
+                throw error;
             }
         });
     }

@@ -23,7 +23,6 @@ async function loadChampionMap() {
         console.log(`✅ ${Object.keys(CHAMPION_MAP).length} campeões mapeados.`);
     } catch (e) {
         console.error('❌ Erro ao baixar DDragon:', e);
-        // Fallback or exit? Let's generic fallback.
     }
 }
 
@@ -62,60 +61,105 @@ async function main() {
                 });
             }
 
-            // 2. Update Summoner Info (Icon & Level)
-            console.log('   -> Atualizando Ícone e Nível...');
-            const summoner = await riotService.getSummonerByPuuid(puuid);
-            await prisma.player.update({
-                where: { puuid },
-                data: {
-                    profileIconId: summoner.profileIconId,
-                    summonerLevel: summoner.summonerLevel,
-                    isActive: true
-                }
-            });
+            // 2. CHECK STALE DATA (24h Cache)
+            const now = new Date();
+            const lastUpdate = new Date(player.updatedAt);
+            const hoursDiff = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+            const isFresh = hoursDiff < 24;
 
-            // 3. Update Champion Masteries
-            console.log('   -> Baixando Maestrias...');
-            const masteries = await riotService.getChampionMasteries(puuid, 12); // Top 12
-            for (const m of masteries) {
-                const champName = CHAMPION_MAP[m.championId] || `Champ ${m.championId}`;
-
-                await prisma.championMastery.upsert({
-                    where: {
-                        playerId_championId: { playerId: puuid, championId: m.championId }
-                    },
-                    create: {
-                        playerId: puuid,
-                        championId: m.championId,
-                        championName: champName,
-                        championLevel: m.championLevel,
-                        championPoints: m.championPoints,
-                        lastPlayTime: m.lastPlayTime
-                    },
-                    update: {
-                        championName: champName,
-                        championLevel: m.championLevel,
-                        championPoints: m.championPoints,
-                        lastPlayTime: m.lastPlayTime
+            if (isFresh && player.profileIconId) {
+                console.log('   -> Dados em cache (24h). Pulando atualização estática (Ícone/Maestria).');
+            } else {
+                // Update Summoner Info (Icon & Level)
+                console.log('   -> Atualizando Ícone e Nível...');
+                const summoner = await riotService.getSummonerByPuuid(puuid);
+                await prisma.player.update({
+                    where: { puuid },
+                    data: {
+                        profileIconId: summoner.profileIconId,
+                        summonerLevel: summoner.summonerLevel,
+                        isActive: true
                     }
                 });
+
+                // Update Champion Masteries
+                console.log('   -> Baixando Maestrias...');
+                const masteries = await riotService.getChampionMasteries(puuid, 12); // Top 12
+                for (const m of masteries) {
+                    const champName = CHAMPION_MAP[m.championId] || `Champ ${m.championId}`;
+
+                    await prisma.championMastery.upsert({
+                        where: {
+                            playerId_championId: { playerId: puuid, championId: m.championId }
+                        },
+                        create: {
+                            playerId: puuid,
+                            championId: m.championId,
+                            championName: champName,
+                            championLevel: m.championLevel,
+                            championPoints: m.championPoints,
+                            lastPlayTime: m.lastPlayTime
+                        },
+                        update: {
+                            championName: champName,
+                            championLevel: m.championLevel,
+                            championPoints: m.championPoints,
+                            lastPlayTime: m.lastPlayTime
+                        }
+                    });
+                }
             }
 
             // 4. Update PDL Daily Stats (Snapshot)
-            // We need current Rank from League V4 to do this accurately
-            const leagues = await riotService.getLeagueEntries(summoner.id);
+            console.log('   -> Verificando PDL (Dynamic)...');
+
+            // Check if we already have a snapshot for today
+            const hasSoloToday = await prisma.pdlDailyStats.findUnique({
+                where: { playerId_queueType_date: { playerId: puuid, queueType: 'SOLO', date: today } }
+            });
+            const hasFlexToday = await prisma.pdlDailyStats.findUnique({
+                where: { playerId_queueType_date: { playerId: puuid, queueType: 'FLEX', date: today } }
+            });
+
+            // If we have both, and user wants "Conservative", maybe we skip League V4 call?
+            // "O sistema deve priorizar estabilidade".
+            // If we have stats today, we can skip. But if we want real-time updates of "EndLP", we should fetch.
+            // Let's implement: If fresh (<1h) skip? Or just respect rate limit?
+            // Rate limit in RiotService is strict (10/s). We can afford to call but sequentially.
+            // However, to be super safe: check summonerId
+
+            let summonerId = player.summonerId;
+
+            // Force refresh of summonerId if missing/stale or explicitly ensure it's set
+            if (!summonerId) {
+                console.log(`   -> SummonerID ausente. Buscando via API...`);
+                try {
+                    const s = await riotService.getSummonerByPuuid(puuid);
+                    if (!s || !s.id) {
+                        console.error('   ❌ ERRO: Summoner API não retornou ID!', s);
+                        continue;
+                    }
+                    summonerId = s.id;
+                    await prisma.player.update({ where: { puuid }, data: { summonerId } });
+                } catch (summErr) {
+                    console.error('   ❌ Falha ao buscar Summoner Info:', summErr);
+                    continue;
+                }
+            }
+
+            if (!summonerId) {
+                console.error('   ⚠️ Pulando verificação de liga (Sem SummonerID).');
+                continue;
+            }
+
+            const leagues = await riotService.getLeagueEntries(summonerId);
             for (const queue of ['SOLO', 'FLEX']) {
                 const riotQueueType = queue === 'SOLO' ? 'RANKED_SOLO_5x5' : 'RANKED_FLEX_SR';
                 const entry = leagues.find((l: any) => l.queueType === riotQueueType);
 
                 if (!entry) continue;
 
-                const currentLp = entry.leaguePoints; // Need to normalize Tier? 
-                // Using simple LP for now, assuming logic handles Tier changes elsewhere or we store raw LP relative to tier?
-                // Wait, User wanted "Ganhos e Perdas". Ideally we store Total Normalized LP.
-                // But PdlDailyStats usually tracks just LP if we also track Tier.
-                // Let's stick to the schema: standard LP. Logic will calc diff based on Tier change.
-                // Actually, schema has just `startLp`, `endLp`.
+                const currentLp = entry.leaguePoints;
 
                 // Find existing daily stat
                 const daily = await prisma.pdlDailyStats.findUnique({
@@ -132,8 +176,6 @@ async function main() {
                         }
                     });
                 } else {
-                    // Create new daily snapshot (Start = Current because it's first look of day, or fetch yesterday?)
-                    // Best effort: Start = Current.
                     await prisma.pdlDailyStats.create({
                         data: {
                             playerId: puuid,
@@ -142,7 +184,7 @@ async function main() {
                             startLp: currentLp,
                             endLp: currentLp,
                             peakLp: currentLp,
-                            wins: 0, // Todo: calc from match ingest
+                            wins: 0,
                             losses: 0
                         }
                     });
@@ -150,7 +192,11 @@ async function main() {
             }
 
         } catch (err: any) {
-            console.error(`❌ Erro em ${p.gameName}: ${err.message}`);
+            if (err?.response?.status === 403) {
+                console.error(`❌ Erro 403 (Forbidden) em ${p.gameName}. Verifique a API Key.`);
+            } else {
+                console.error(`❌ Erro em ${p.gameName}: ${err.message}`);
+            }
         }
     }
 
