@@ -15,14 +15,14 @@ const TIER_COLORS: Record<string, string> = {
     UNRANKED: 'bg-zinc-800/50 text-zinc-500 border-zinc-700',
 };
 
-export function EloBadge({ tier, rank, size = 'md' }: { tier: string; rank?: string; size?: 'sm' | 'md' | 'lg' }) {
+export function EloBadge({ tier, rank, size = 'md', className = '' }: { tier: string; rank?: string; size?: 'sm' | 'md' | 'lg', className?: string }) {
     const colorClass = TIER_COLORS[tier] || TIER_COLORS.UNRANKED;
 
     // Size classes
     const sizeClasses = size === 'lg' ? 'px-4 py-1 text-sm' : 'px-2 py-0.5 text-xs';
 
     return (
-        <span className={`${sizeClasses} rounded font-bold border ${colorClass} uppercase tracking-wider`}>
+        <span className={`${sizeClasses} rounded font-bold border ${colorClass} uppercase tracking-wider ${className}`}>
             {tier} {rank}
         </span>
     );

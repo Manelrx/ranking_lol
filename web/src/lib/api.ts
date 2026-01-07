@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3002/api';
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333') + '/api';
 
 export interface RankingEntry {
     rank: number;
@@ -67,6 +67,7 @@ export interface PdlGainEntry {
     lp: number;
     pdlGain: number;
     trend: 'UP' | 'DOWN' | 'SAME';
+    profileIconId?: number | null; // Added
 }
 
 export interface PlayerStats {
@@ -146,14 +147,16 @@ export interface HighlightPlayer {
 export interface WeeklyHighlights {
     period: { start: string; end: string };
     mvp: HighlightPlayer | null;
+    lpMachine: HighlightPlayer | null;
+    kdaKing: HighlightPlayer | null;
     mostActive: HighlightPlayer | null;
     highestDmg: HighlightPlayer | null;
     bestVision: HighlightPlayer | null;
     periodLabel: string; // Added for frontend
 }
 
-export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO', page: number = 1, limit: number = 10): Promise<PlayerInsights> {
-    const res = await fetch(`${API_URL}/player/${puuid}/insights?queue=${queue}&page=${page}&limit=${limit}`);
+export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO', page: number = 1, limit: number = 10, sort: 'asc' | 'desc' = 'desc'): Promise<PlayerInsights> {
+    const res = await fetch(`${API_URL}/player/${puuid}/insights?queue=${queue}&page=${page}&limit=${limit}&sort=${sort}`);
     if (!res.ok) throw new Error('Failed to fetch player insights');
     return res.json();
 }

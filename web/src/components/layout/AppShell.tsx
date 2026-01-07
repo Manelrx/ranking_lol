@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { Menu } from "lucide-react";
@@ -33,7 +33,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col min-h-screen lg:ml-64 transition-all duration-300">
-                <Topbar onMenuClick={toggleSidebar} />
+                <Suspense fallback={<div className="h-16 bg-zinc-900 border-b border-white/5 sticky top-0 z-40" />}>
+                    <Topbar onMenuClick={toggleSidebar} />
+                </Suspense>
 
                 <main className="p-4 lg:p-8 flex-1 overflow-y-auto">
                     <div className="max-w-7xl mx-auto w-full">

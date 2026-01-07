@@ -9,7 +9,9 @@ import { Card } from '@/components/ui/Card';
 import { Trophy, Users, Zap, Crown } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function Home() {
+import { Suspense } from 'react';
+
+function HomeContent() {
   const searchParams = useSearchParams();
   const queue = (searchParams.get('queue')?.toUpperCase() === 'FLEX' ? 'FLEX' : 'SOLO') as 'SOLO' | 'FLEX';
 
@@ -134,6 +136,14 @@ export default function Home() {
       </div>
 
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div></div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
 

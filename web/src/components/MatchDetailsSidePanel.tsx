@@ -94,23 +94,23 @@ export function MatchDetailsSidePanel({ match, onClose }: MatchDetailsSidePanelP
 
                                     <ScoreRow
                                         icon={<Swords size={18} className="text-blue-400" />}
-                                        label="Combate"
+                                        label="Combate (KDA & Dano)"
                                         value={match.performanceScore}
-                                        max={100}
+                                        max={60}
                                         color="bg-blue-500"
                                     />
                                     <ScoreRow
                                         icon={<Target size={18} className="text-amber-400" />}
                                         label="Objetivos"
                                         value={match.objectivesScore}
-                                        max={100}
+                                        max={20}
                                         color="bg-amber-500"
                                     />
                                     <ScoreRow
                                         icon={<AlertCircle size={18} className="text-emerald-400" />}
                                         label="Visão & Controle"
                                         value={match.disciplineScore}
-                                        max={100}
+                                        max={20}
                                         color="bg-emerald-500"
                                     />
                                 </div>
@@ -135,7 +135,9 @@ export function MatchDetailsSidePanel({ match, onClose }: MatchDetailsSidePanelP
 }
 
 function ScoreRow({ icon, label, value, max, color }: any) {
-    const percentage = Math.min(100, Math.max(0, value));
+    // Calculate percentage based on max potential (e.g., Performance is out of ~60, so 30 is 50%)
+    const percentage = Math.min(100, Math.max(0, (value / max) * 100));
+
     return (
         <div className="group bg-white/5 hover:bg-white/10 border border-transparent hover:border-white/5 rounded-xl p-4 transition-all">
             <div className="flex items-center justify-between mb-3">
@@ -145,13 +147,18 @@ function ScoreRow({ icon, label, value, max, color }: any) {
                     </div>
                     <span className="text-sm font-medium text-gray-300">{label}</span>
                 </div>
-                <span className="text-xl font-bold text-white font-mono">{value}</span>
+                <div className="text-right">
+                    <span className="text-xl font-bold text-white font-mono">{value.toFixed(1)}</span>
+                    <span className="text-xs text-gray-500 ml-1">/ {max}</span>
+                </div>
             </div>
             {/* Progress Bar */}
             <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
-                <div
-                    className={`h-full ${color} rounded-full transition-all duration-1000 ease-out`}
-                    style={{ width: `${percentage}%` }}
+                <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${percentage}%` }}
+                    transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
+                    className={`h-full ${color} rounded-full`}
                 />
             </div>
         </div>

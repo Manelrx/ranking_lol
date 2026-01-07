@@ -9,17 +9,23 @@ import { EloBadge } from "@/components/EloBadge";
 import Link from "next/link";
 import { Search, Trophy, TrendingUp } from "lucide-react";
 
-export default function PlayersDirectoryPage() {
+import { Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+
+function PlayersContent() {
     const [players, setPlayers] = useState<RankingEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("");
+
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const queue = (searchParams.get('queue')?.toUpperCase() === 'FLEX' ? 'FLEX' : 'SOLO') as 'SOLO' | 'FLEX';
 
     useEffect(() => {
         const fetch = async () => {
             setLoading(true);
             try {
-                // Fetch Solo Ranking as default list
-                const res = await getSeasonRanking("SOLO", 100);
+                const res = await getSeasonRanking(queue, 100);
                 setPlayers(res);
             } catch (err) {
                 console.error(err);
@@ -28,7 +34,14 @@ export default function PlayersDirectoryPage() {
             }
         };
         fetch();
-    }, []);
+    }, [queue]);
+
+    const toggleQueue = (newQueue: "SOLO" | "FLEX") => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (newQueue === "SOLO") params.delete("queue");
+        else params.set("queue", "FLEX");
+        router.push(`?${params.toString()}`);
+    };
 
     const filtered = players.filter(p =>
         p.gameName.toLowerCase().includes(filter.toLowerCase()) ||
@@ -37,22 +50,46 @@ export default function PlayersDirectoryPage() {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 min-h-screen pb-20">
-            {/* Header com Busca */}
+            {/* Header com Busca e Toggle */}
             <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
                 <div>
                     <h2 className="text-3xl font-bold text-white tracking-tight">Jogadores</h2>
                     <p className="text-gray-400">Diretório oficial do servidor ({players.length})</p>
                 </div>
 
-                <div className="relative w-full md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
-                    <input
-                        type="text"
-                        placeholder="Buscar invocador..."
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-600"
-                    />
+                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                    {/* Queue Toggle */}
+                    <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 backdrop-blur-sm self-start sm:self-auto">
+                        <button
+                            onClick={() => toggleQueue("SOLO")}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${queue === "SOLO"
+                                ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
+                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                                }`}
+                        >
+                            Solo/Duo
+                        </button>
+                        <button
+                            onClick={() => toggleQueue("FLEX")}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${queue === "FLEX"
+                                ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
+                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                                }`}
+                        >
+                            Flex
+                        </button>
+                    </div>
+
+                    <div className="relative w-full md:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Buscar invocador..."
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value)}
+                            className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-600"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -67,7 +104,7 @@ export default function PlayersDirectoryPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {filtered.map((player) => (
                         <Card key={player.puuid} variant="glass" className="p-0 overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
-                            <Link href={`/player/${player.puuid}`}>
+                            <Link href={`/player/${player.puuid}?queue=${queue}`}>
                                 <div className="p-6 flex flex-col items-center text-center relative">
                                     {/* Hover Effect Background */}
                                     <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/0 to-indigo-500/0 group-hover:to-indigo-500/5 transition-all duration-500" />
@@ -126,9 +163,17 @@ export default function PlayersDirectoryPage() {
 
             {filtered.length === 0 && !loading && (
                 <div className="text-center py-20 text-gray-500">
-                    Nenhum jogador encontrado com esse nome.
+                    Nenhum jogador encontrado com esse nome na fila <strong>{queue === 'SOLO' ? 'Solo/Duo' : 'Flex'}</strong>.
                 </div>
             )}
         </div>
+    );
+}
+
+export default function PlayersDirectoryPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div></div>}>
+            <PlayersContent />
+        </Suspense>
     );
 }

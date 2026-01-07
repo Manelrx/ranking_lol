@@ -14,6 +14,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+import { Suspense } from "react";
+
+// ... existing imports
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -25,7 +29,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#09090b] text-white`}
       >
         <AppShell>
-          {children}
+          <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div></div>}>
+            {children}
+          </Suspense>
         </AppShell>
       </body>
     </html>

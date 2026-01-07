@@ -24,6 +24,19 @@ const TIERS = [
     { id: "IRON", label: "Iron" },
 ];
 
+// Helper to compare Elo
+const getEloValue = (p: RankingEntry) => {
+    const tierScores: Record<string, number> = {
+        CHALLENGER: 90000, GRANDMASTER: 80000, MASTER: 70000,
+        DIAMOND: 60000, EMERALD: 50000, PLATINUM: 40000,
+        GOLD: 30000, SILVER: 20000, BRONZE: 10000, IRON: 0
+    };
+    const rankScores: Record<string, number> = { I: 300, II: 200, III: 100, IV: 0, "": 0 };
+
+    // Base Tier Score + Rank Score + LP
+    return (tierScores[p.tier] || 0) + (rankScores[p.rankDivision] || 0) + p.lp;
+};
+
 export default function EloRankingPage() {
     const searchParams = useSearchParams();
     const queue = (searchParams.get("queue")?.toUpperCase() === "FLEX" ? "FLEX" : "SOLO") as "SOLO" | "FLEX";
@@ -31,6 +44,7 @@ export default function EloRankingPage() {
     const [players, setPlayers] = useState<RankingEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("ALL");
+    const [viewMode, setViewMode] = useState<"TIER" | "POINTS">("TIER");
 
     useEffect(() => {
         setLoading(true);
@@ -42,9 +56,17 @@ export default function EloRankingPage() {
     }, [queue]);
 
     const filteredPlayers = useMemo(() => {
-        if (activeTab === "ALL") return players;
-        return players.filter(p => p.tier === activeTab);
-    }, [players, activeTab]);
+        if (viewMode === "POINTS") {
+            // Sort by Total Score Descending
+            return [...players].sort((a, b) => b.totalScore - a.totalScore);
+        }
+
+        // Mode TIER: Sort by Elo Value
+        let sorted = [...players].sort((a, b) => getEloValue(b) - getEloValue(a));
+
+        if (activeTab === "ALL") return sorted;
+        return sorted.filter(p => p.tier === activeTab);
+    }, [players, activeTab, viewMode]);
 
     const topPlayer = useMemo(() => {
         if (filteredPlayers.length > 0) return filteredPlayers[0];
@@ -58,20 +80,48 @@ export default function EloRankingPage() {
                 <div>
                     <h2 className="text-3xl font-bold text-white tracking-tight flex items-center gap-2">
                         <Trophy className="w-8 h-8 text-yellow-500" />
-                        Ranking por Elo
+                        Ranking {viewMode === "TIER" ? "por Elo" : "Global"}
                     </h2>
                     <p className="text-gray-400 mt-1">
-                        Classificação detalhada por divisões competitivas.
+                        {viewMode === "TIER"
+                            ? "Classificação detalhada por divisões competitivas."
+                            : "Classificação geral baseada no RiftScore."}
                     </p>
                 </div>
 
-                {/* Tabs Component */}
-                <Tabs
-                    tabs={TIERS}
-                    activeTab={activeTab}
-                    onChange={setActiveTab}
-                    className="w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar"
-                />
+                <div className="flex flex-col gap-4 w-full md:w-auto items-end">
+                    {/* View Mode Toggle */}
+                    <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 backdrop-blur-sm">
+                        <button
+                            onClick={() => setViewMode("TIER")}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === "TIER"
+                                ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
+                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                                }`}
+                        >
+                            Por Elo
+                        </button>
+                        <button
+                            onClick={() => setViewMode("POINTS")}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === "POINTS"
+                                ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
+                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                                }`}
+                        >
+                            Por Pontos
+                        </button>
+                    </div>
+
+                    {/* Tabs Component (Only in TIER mode) */}
+                    {viewMode === "TIER" && (
+                        <Tabs
+                            tabs={TIERS}
+                            activeTab={activeTab}
+                            onChange={setActiveTab}
+                            className="w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar"
+                        />
+                    )}
+                </div>
             </div>
 
             {loading ? (
@@ -86,7 +136,7 @@ export default function EloRankingPage() {
                     <AnimatePresence mode="wait">
                         {topPlayer && (
                             <motion.div
-                                key={topPlayer.puuid + activeTab}
+                                key={topPlayer.puuid + activeTab + viewMode}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
@@ -107,7 +157,7 @@ export default function EloRankingPage() {
 
                                         <div className="text-center md:text-left flex-1">
                                             <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-widest mb-1">
-                                                Líder {activeTab === "ALL" ? "Geral" : activeTab}
+                                                Líder {viewMode === "TIER" ? (activeTab === "ALL" ? "Geral" : activeTab) : "Global"}
                                             </h3>
                                             <div className="text-3xl font-bold text-white mb-1">
                                                 {topPlayer.gameName}

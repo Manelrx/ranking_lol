@@ -15,7 +15,7 @@ server.register(rankingRoutes);
 
 const start = async () => {
     try {
-        const port = 3002; // Moved from 3001 due to zombie process lock
+        const port = Number(process.env.PORT) || 3333;
         await server.listen({ port, host: '0.0.0.0' });
         console.log(`Server listening on http://localhost:${port}`);
     } catch (err) {

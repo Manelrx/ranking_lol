@@ -58,6 +58,17 @@ export function PdlChart({ history }: { history: PlayerHistoryEntry[] }) {
                         tickLine={false}
                         axisLine={false}
                         domain={['auto', 'auto']}
+                        tickFormatter={(value) => {
+                            // Reverse lookup approximately
+                            if (value >= 2800) return "CHALL";
+                            if (value >= 2400) return "DIA";
+                            if (value >= 2000) return "EMERALD";
+                            if (value >= 1600) return "PLAT";
+                            if (value >= 1200) return "GOLD";
+                            if (value >= 800) return "SILVER";
+                            if (value >= 400) return "BRONZE";
+                            return "IRON";
+                        }}
                     />
                     <Tooltip
                         contentStyle={{

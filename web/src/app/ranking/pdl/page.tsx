@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getPdlGainRanking, PdlGainEntry } from "@/lib/api";
 import { EloBadge } from "@/components/EloBadge";
+import { PlayerAvatar } from "@/components/ui/PlayerAvatar";
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -87,9 +88,7 @@ export default function PdlRankingPage() {
                                         <td className="p-4 text-center font-mono text-gray-500 font-bold">{index + 1}</td>
                                         <td className="p-4">
                                             <Link href={`/player/${player.puuid}`} className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${index < 3 ? 'bg-yellow-500 text-black' : 'bg-white/10 text-gray-400'}`}>
-                                                    {player.gameName.substring(0, 1)}
-                                                </div>
+                                                <PlayerAvatar profileIconId={player.profileIconId} size="sm" />
                                                 <div>
                                                     <div className="font-bold text-white group-hover:text-emerald-400 transition-colors">
                                                         {player.gameName}

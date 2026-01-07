@@ -161,12 +161,11 @@ export class RankingService {
                 orderBy: { createdAt: 'asc' }
             });
 
-            if (snapshots.length < 2) continue;
+            if (snapshots.length === 0) continue;
 
+            // Handle single snapshot case (New players or start of season tracking)
             const start = snapshots[0];
             const end = snapshots[snapshots.length - 1];
-
-            if (!start || !end) continue;
 
             // Normalize LP (Simple tier approximation)
             const getVal = (tier: string, lp: number) => {
@@ -176,13 +175,15 @@ export class RankingService {
 
             const startVal = getVal(start.tier, start.lp);
             const endVal = getVal(end.tier, end.lp);
+            // If only 1 snapshot, start == end, so gain is 0. This is fine, at least they show up.
             const gain = endVal - startVal;
 
             gains.push({
                 puuid: player.puuid,
                 gameName: player.gameName,
                 tagLine: player.tagLine,
-                startTier: start.tier, // Added start context
+                profileIconId: player.profileIconId, // Added
+                startTier: start.tier,
                 startRank: start.rank,
                 startLp: start.lp,
                 tier: end.tier,
@@ -285,7 +286,7 @@ export class RankingService {
         // Aggregation Query (All Time)
         // Using Prisma aggregate for performance
         const aggregations = await prisma.matchScore.aggregate({
-            where: { playerId: puuid, queueType: queueType },
+            where: { playerId: puuid, queueType: queueType } as any,
             _avg: { matchScore: true, kills: true, deaths: true, assists: true },
             _sum: { kills: true, deaths: true, assists: true },
             _min: { matchScore: true },
@@ -295,7 +296,7 @@ export class RankingService {
 
         // Count wins specifically
         const wins = await prisma.matchScore.count({
-            where: { playerId: puuid, queueType: queueType, isVictory: true }
+            where: { playerId: puuid, queueType: queueType, isVictory: true } as any
         });
 
         // Best/Worst (Could be optimized but simple min/max works from agg)
@@ -365,22 +366,23 @@ export class RankingService {
         const monday = new Date(now.setDate(diff));
         monday.setHours(0, 0, 0, 0);
 
-        // Fetch all scores for this week
-        const scores: any[] = await prisma.matchScore.findMany({
+        // 1. Fetch all scores for this week
+        const scores = await prisma.matchScore.findMany({
             where: {
-                queueType,
+                queueType: queueType,
                 createdAt: { gte: monday }
-            } as any,
+            } as any, // Cast to avoid TS issues with generated types if out of sync
             include: { player: true }
         });
 
         if (scores.length === 0) return null;
 
-        // Group by Player
+        // 2. Group by Player
         const playerStats: Record<string, {
             player: any,
             games: number,
             wins: number,
+            totalScore: number, // For MVP
             kills: number,
             deaths: number,
             assists: number,
@@ -388,21 +390,22 @@ export class RankingService {
             totalVision: number
         }> = {};
 
-        scores.forEach(s => {
+        scores.forEach((s: any) => {
             if (!playerStats[s.playerId]) {
                 playerStats[s.playerId] = {
                     player: s.player,
-                    games: 0, wins: 0,
+                    games: 0, wins: 0, totalScore: 0,
                     kills: 0, deaths: 0, assists: 0,
                     totalDmg: 0, totalVision: 0
                 };
             }
             const p = playerStats[s.playerId];
             p.games++;
+            p.totalScore += (s.matchScore || 0);
             if (s.isVictory) p.wins++;
-            p.kills += s.kills;
-            p.deaths += s.deaths;
-            p.assists += s.assists;
+            p.kills += (s.kills || 0);
+            p.deaths += (s.deaths || 0);
+            p.assists += (s.assists || 0);
 
             // Extract JSON metrics safely
             const metrics = s.metrics as any;
@@ -414,29 +417,67 @@ export class RankingService {
         const minGames = 2; // Min valid for highlights
         const validStats = statsArray.filter(s => s.games >= minGames);
 
-        // 1. MVP (Highest Score? Or KDA?) -> Let's use KDA for MVP Highlight
-        const bestKda = validStats.sort((a, b) => {
+        // 3. Calculate Highlights
+
+        // A) MVP (Highest Average Score)
+        const mvp = validStats.sort((a, b) => (b.totalScore / b.games) - (a.totalScore / a.games))[0];
+
+        // B) KDA King
+        const kdaKing = validStats.sort((a, b) => {
             const kdaA = a.deaths === 0 ? (a.kills + a.assists) : (a.kills + a.assists) / a.deaths;
             const kdaB = b.deaths === 0 ? (b.kills + b.assists) : (b.kills + b.assists) / b.deaths;
             return kdaB - kdaA;
         })[0];
 
-        // 2. Most Active
+        // C) Most Active (Addicted)
         const mostActive = statsArray.sort((a, b) => b.games - a.games)[0];
 
-        // 3. Highest Damage (Avg per game)
+        // D) Highest Damage (Avg per game)
         const highestDmg = validStats.sort((a, b) => (b.totalDmg / b.games) - (a.totalDmg / a.games))[0];
 
-        // 4. Best Support (Vision + Assists weight)
-        // Simplified: Avg Vision Score
-        const bestVision = validStats.sort((a, b) => (b.totalVision / b.games) - (a.totalVision / a.games))[0];
+        // E) LP Machine (Pdl Gain this week) -> Reuse logic logic but optimize
+        // calling getPdlGainRanking for this week
+        const pdlRanking = await this.getPdlGainRanking(queueType, 1, monday);
+        const lpMachineData = pdlRanking.length > 0 ? pdlRanking[0] : null;
+
+        // Resolve LP Machine Player details
+        let lpMachine = null;
+        if (lpMachineData) {
+            const p = await prisma.player.findUnique({ where: { puuid: lpMachineData.puuid } });
+            if (p) {
+                lpMachine = { ...p, value: `+${lpMachineData.pdlGain}`, label: 'PDL Ganho' };
+            }
+        }
 
         return {
-            period: { start: monday, end: new Date() },
-            mvp: bestKda ? { ...bestKda.player, value: ((bestKda.kills + bestKda.assists) / (bestKda.deaths || 1)).toFixed(2), label: 'KDA' } : null,
-            mostActive: mostActive ? { ...mostActive.player, value: mostActive.games, label: 'Partidas' } : null,
-            highestDmg: highestDmg ? { ...highestDmg.player, value: (highestDmg.totalDmg / highestDmg.games).toFixed(0), label: 'Dano/Jogo' } : null,
-            bestVision: bestVision ? { ...bestVision.player, value: (bestVision.totalVision / bestVision.games).toFixed(0), label: 'Visão/Jogo' } : null
+            period: { start: monday.toISOString(), end: new Date().toISOString() },
+            periodLabel: `Semana de ${monday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
+
+            mvp: mvp ? {
+                ...mvp.player,
+                value: (mvp.totalScore / mvp.games).toFixed(1),
+                label: 'Pontos/Jogo'
+            } : null,
+
+            kdaKing: kdaKing ? {
+                ...kdaKing.player,
+                value: ((kdaKing.kills + kdaKing.assists) / (kdaKing.deaths || 1)).toFixed(2),
+                label: 'KDA'
+            } : null,
+
+            mostActive: mostActive ? {
+                ...mostActive.player,
+                value: mostActive.games,
+                label: 'Partidas'
+            } : null,
+
+            highestDmg: highestDmg ? {
+                ...highestDmg.player,
+                value: (highestDmg.totalDmg / highestDmg.games).toFixed(0),
+                label: 'Dano/Jogo'
+            } : null,
+
+            lpMachine: lpMachine // Already formatted
         };
     }
 

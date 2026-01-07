@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Trophy, TrendingUp, Users, Home, Activity, X } from "lucide-react";
+import { Trophy, TrendingUp, Users, Home, Activity, X, Info } from "lucide-react";
 
 interface SidebarProps {
     onClose?: () => void;
@@ -13,6 +13,8 @@ const MENU_ITEMS = [
     { label: "Ranking por Elo", href: "/ranking/elo", icon: Trophy },
     { label: "Ganho de PDL", href: "/ranking/pdl", icon: TrendingUp },
     { label: "Jogadores", href: "/players", icon: Users },
+    { label: "Insights", href: "/insights", icon: Activity },
+    { label: "Ajuda & Regras", href: "/help", icon: Info },
 ];
 
 export function Sidebar({ onClose }: SidebarProps) {
@@ -45,8 +47,8 @@ export function Sidebar({ onClose }: SidebarProps) {
                             href={item.href}
                             onClick={onClose} // Auto-close on mobile nav
                             className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 group relative overflow-hidden ${isActive
-                                    ? "bg-emerald-500/10 text-emerald-300 font-medium"
-                                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                ? "bg-emerald-500/10 text-emerald-300 font-medium"
+                                : "text-gray-400 hover:bg-white/5 hover:text-white"
                                 }`}
                         >
                             {isActive && (
