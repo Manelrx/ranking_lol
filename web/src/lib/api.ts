@@ -98,6 +98,12 @@ export interface MatchHistoryEntry {
 export interface PlayerInsights {
     stats: PlayerStats;
     history: MatchHistoryEntry[];
+    pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
     insights: {
         consistency: string;
         trend: string;
@@ -146,8 +152,8 @@ export interface WeeklyHighlights {
     periodLabel: string; // Added for frontend
 }
 
-export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<PlayerInsights> {
-    const res = await fetch(`${API_URL}/player/${puuid}/insights?queue=${queue}`);
+export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO', page: number = 1, limit: number = 10): Promise<PlayerInsights> {
+    const res = await fetch(`${API_URL}/player/${puuid}/insights?queue=${queue}&page=${page}&limit=${limit}`);
     if (!res.ok) throw new Error('Failed to fetch player insights');
     return res.json();
 }

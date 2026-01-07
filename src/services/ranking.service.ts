@@ -144,14 +144,20 @@ export class RankingService {
      * Get PDL Gain Ranking
      * PDL Gain = Current LP (normalized) - Initial LP (normalized)
      */
-    async getPdlGainRanking(queueType: 'SOLO' | 'FLEX', limit: number = 20) {
+    async getPdlGainRanking(queueType: 'SOLO' | 'FLEX', limit: number = 20, startDate?: Date) {
         const players = await prisma.player.findMany({ where: { isActive: true } });
         const gains = [];
 
         for (const player of players) {
+            // Build where clause
+            const whereClause: any = { playerId: player.puuid, queueType };
+            if (startDate) {
+                whereClause.createdAt = { gte: startDate };
+            }
+
             // Get Snapshots sorted by date
             const snapshots = await prisma.rankSnapshot.findMany({
-                where: { playerId: player.puuid, queueType },
+                where: whereClause,
                 orderBy: { createdAt: 'asc' }
             });
 
@@ -176,6 +182,9 @@ export class RankingService {
                 puuid: player.puuid,
                 gameName: player.gameName,
                 tagLine: player.tagLine,
+                startTier: start.tier, // Added start context
+                startRank: start.rank,
+                startLp: start.lp,
                 tier: end.tier,
                 rank: end.rank,
                 lp: end.lp,
@@ -241,43 +250,65 @@ export class RankingService {
     /**
      * Get Player Insights & Stats
      */
-    async getPlayerInsights(puuid: string, queueType: 'SOLO' | 'FLEX') {
+    async getPlayerInsights(puuid: string, queueType: 'SOLO' | 'FLEX', page: number = 1, limit: number = 10, sortDir: 'asc' | 'desc' = 'desc') {
         const player = await prisma.player.findUnique({ where: { puuid } });
         if (!player) return null;
 
-        // Optimized Query using denormalized queueType and fields
+        // Count Total for Pagination
+        const totalMatches = await prisma.matchScore.count({
+            where: {
+                playerId: puuid,
+                queueType: queueType
+            }
+        });
+
+        // Optimized Query with Pagination & Correct Sorting
         const scores: any[] = await prisma.matchScore.findMany({
             where: {
                 playerId: puuid,
-                queueType: queueType // Direct filter (Index friendly)
+                queueType: queueType
             } as any,
-            orderBy: { createdAt: 'desc' },
+            orderBy: {
+                match: {
+                    gameCreation: sortDir // Sort by Actual Game Date
+                }
+            },
+            skip: (page - 1) * limit,
+            take: limit,
             include: { match: true }
         });
 
-        if (scores.length === 0) return null;
+        // Calc Stats (Ideally should be aggregated separately or cached, but for now we calc on page 1 or separate query?)
+        // Issue: If we paginate, 'avgScore' and 'winRate' must reflect TOTAL stats, not just this page.
+        // So we need a separate aggregation query for stats, and one for history list.
 
-        // Calc Stats using Top-Level Columns (No JSON parsing)
-        const totalScore = scores.reduce((acc, s) => acc + s.matchScore, 0);
-        const avgScore = totalScore / scores.length;
-        const wins = scores.filter(s => s.isVictory).length;
-        const winRate = ((wins / scores.length) * 100).toFixed(1);
-
-        // Best/Worst
-        const sortedByScore = [...scores].sort((a, b) => b.matchScore - a.matchScore);
-        const bestMatch = sortedByScore[0];
-        const worstMatch = sortedByScore[sortedByScore.length - 1];
-
-        // KDA Calc (Direct Access)
-        let totalK = 0, totalD = 0, totalA = 0;
-        scores.forEach(s => {
-            totalK += s.kills;
-            totalD += s.deaths;
-            totalA += s.assists;
+        // Aggregation Query (All Time)
+        // Using Prisma aggregate for performance
+        const aggregations = await prisma.matchScore.aggregate({
+            where: { playerId: puuid, queueType: queueType },
+            _avg: { matchScore: true, kills: true, deaths: true, assists: true },
+            _sum: { kills: true, deaths: true, assists: true },
+            _min: { matchScore: true },
+            _max: { matchScore: true },
+            _count: { isVictory: true } // Only counts rows, need conditional for wins
         });
+
+        // Count wins specifically
+        const wins = await prisma.matchScore.count({
+            where: { playerId: puuid, queueType: queueType, isVictory: true }
+        });
+
+        // Best/Worst (Could be optimized but simple min/max works from agg)
+
+        // KDA Calc (Total)
+        const totalK = aggregations._sum.kills || 0;
+        const totalD = aggregations._sum.deaths || 0;
+        const totalA = aggregations._sum.assists || 0;
         const avgKda = totalD === 0 ? (totalK + totalA) : ((totalK + totalA) / totalD).toFixed(2);
 
-        // Enhanced Match History Map
+        const winRate = totalMatches > 0 ? ((wins / totalMatches) * 100).toFixed(1) : "0.0";
+
+        // Enhanced Match History Map (Paginated)
         const matchHistory = scores.map(s => {
             return {
                 matchId: s.matchId,
@@ -302,17 +333,22 @@ export class RankingService {
 
         return {
             stats: {
-                avgScore: avgScore.toFixed(1),
+                avgScore: (aggregations._avg.matchScore || 0).toFixed(1),
                 winRate: `${winRate}%`,
-                totalGames: scores.length,
+                totalGames: totalMatches,
                 avgKda,
-                bestScore: bestMatch?.matchScore ?? 0,
-                worstScore: worstMatch?.matchScore ?? 0
+                bestScore: aggregations._max.matchScore ?? 0,
+                worstScore: aggregations._min.matchScore ?? 0
             },
             history: matchHistory,
-            // Weekly/Monthly placeholders
+            pagination: {
+                page,
+                limit,
+                total: totalMatches,
+                totalPages: Math.ceil(totalMatches / limit)
+            },
             insights: {
-                consistency: 'Alta', // PT-BR
+                consistency: 'Alta',
                 trend: 'UP'
             }
         };

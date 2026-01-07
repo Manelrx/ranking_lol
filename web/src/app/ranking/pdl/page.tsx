@@ -32,16 +32,34 @@ export default function PdlRankingPage() {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
-            <header>
-                <h2 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-                    <div className="p-2 bg-emerald-500/10 rounded-lg">
-                        <TrendingUp className="w-8 h-8 text-emerald-400" />
-                    </div>
-                    Maiores Subidas (PDL)
-                </h2>
-                <p className="text-gray-400 mt-2 ml-14">
-                    Quem está escalando (ou caindo) mais rápido na Temporada.
-                </p>
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h2 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+                        <div className="p-2 bg-emerald-500/10 rounded-lg">
+                            <TrendingUp className="w-8 h-8 text-emerald-400" />
+                        </div>
+                        Maiores Subidas (PDL)
+                    </h2>
+                    <p className="text-gray-400 mt-2 ml-14">
+                        Quem está escalando (ou caindo) mais rápido na Temporada.
+                    </p>
+                </div>
+
+                {/* Queue Toggles */}
+                <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
+                    <Link
+                        href={`?queue=solo`}
+                        className={`px-6 py-2 rounded-md font-bold text-sm transition-all ${queue === 'SOLO' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    >
+                        SOLO/DUO
+                    </Link>
+                    <Link
+                        href={`?queue=flex`}
+                        className={`px-6 py-2 rounded-md font-bold text-sm transition-all ${queue === 'FLEX' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    >
+                        FLEX
+                    </Link>
+                </div>
             </header>
 
             {loading ? (

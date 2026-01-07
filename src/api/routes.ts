@@ -59,14 +59,15 @@ export async function rankingRoutes(fastify: FastifyInstance) {
     });
 
     // 4. PDL Gain Ranking
-    interface PdlQuery { queue?: string; limit?: number; }
+    interface PdlQuery { queue?: string; limit?: number; startDate?: string; }
     fastify.get<{ Querystring: PdlQuery }>('/api/ranking/pdl-gain', async (request, reply) => {
-        const { queue = 'SOLO', limit = 20 } = request.query;
+        const { queue = 'SOLO', limit = 20, startDate } = request.query;
         const q = queue === 'FLEX' ? 'FLEX' : 'SOLO';
         const l = Number(limit) || 20;
+        const d = startDate ? new Date(startDate) : undefined;
 
         try {
-            const data = await rankingService.getPdlGainRanking(q, l);
+            const data = await rankingService.getPdlGainRanking(q, l, d);
             return data;
         } catch (error) {
             console.error(error);
@@ -90,13 +91,17 @@ export async function rankingRoutes(fastify: FastifyInstance) {
     });
 
     // 5. Player Insights
-    fastify.get<{ Params: PlayerParams, Querystring: HistoryQuery }>('/api/player/:puuid/insights', async (request, reply) => {
+    interface InsightsQuery extends HistoryQuery { page?: number; limit?: number; sort?: 'asc' | 'desc'; }
+    fastify.get<{ Params: PlayerParams, Querystring: InsightsQuery }>('/api/player/:puuid/insights', async (request, reply) => {
         const { puuid } = request.params;
-        const { queue = 'SOLO' } = request.query;
+        const { queue = 'SOLO', page = 1, limit = 10, sort = 'desc' } = request.query;
         const q = queue === 'FLEX' ? 'FLEX' : 'SOLO';
+        const p = Number(page) || 1;
+        const l = Number(limit) || 10;
+        const s = sort === 'asc' ? 'asc' : 'desc';
 
         try {
-            const data = await rankingService.getPlayerInsights(puuid, q);
+            const data = await rankingService.getPlayerInsights(puuid, q, p, l, s);
             if (!data) {
                 // Return empty/default object instead of 404 to satisfy frontend types
                 return {

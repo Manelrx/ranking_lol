@@ -24,13 +24,18 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
     const [loading, setLoading] = useState(true);
     const [selectedMatch, setSelectedMatch] = useState<MatchHistoryEntry | null>(null);
 
+    // Pagination & Sort State
+    const [page, setPage] = useState(1);
+    const [sort, setSort] = useState<'asc' | 'desc'>('desc');
+
     useEffect(() => {
         const fetch = async () => {
             setLoading(true);
             try {
+                // Fetch with Pagination (Limit 10 default in API, but explicit here good practice)
                 const [hData, iData, eData] = await Promise.all([
                     getPlayerHistory(puuid, queue),
-                    getPlayerInsights(puuid, queue),
+                    getPlayerInsights(puuid, queue, page, 10, sort), // Pass page & sort
                     getPdlEvolution(puuid, queue)
                 ]);
                 setHistory(hData);
@@ -43,7 +48,12 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
             }
         };
         fetch();
-    }, [puuid, queue]);
+    }, [puuid, queue, page, sort]);
+
+    // Reset page on queue/sort change
+    useEffect(() => {
+        setPage(1);
+    }, [queue, sort]);
 
     const handleQueueChange = (newQueue: 'SOLO' | 'FLEX') => {
         const params = new URLSearchParams(searchParams.toString());
@@ -118,13 +128,7 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
                     </Card>
                 </div>
 
-                {/* Right Column (Future Modules or Sticky Ads/Info) 
-                    For now, leaving blank or maybe moving Match History here? 
-                    Actually, let's keep match history full width below for better readability.
-                    Or put a "Best Champions" block here if we had it.
-                    Let's just use it for a placeholder "Champion Mastery" or leave empty to keep centered focus.
-                    Actually, better to stretch grid if empty. But let's keep 2/3 + 1/3 structure.
-                */}
+                {/* Right Column (Future Modules or Sticky Ads/Info) */}
                 <div className="xl:col-span-1 space-y-6">
                     <Card className="h-full min-h-[400px] flex flex-col">
                         <div className="p-4 border-b border-white/5">
@@ -176,11 +180,50 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
                     <h3 className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
                         Histórico de Partidas
                     </h3>
+
+                    {/* Sort Controls */}
+                    <div className="flex items-center gap-2 bg-black/30 p-1 rounded-lg border border-white/5">
+                        <button
+                            onClick={() => setSort('desc')}
+                            className={`px-3 py-1 text-xs font-bold rounded ${sort === 'desc' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            Recente
+                        </button>
+                        <button
+                            onClick={() => setSort('asc')}
+                            className={`px-3 py-1 text-xs font-bold rounded ${sort === 'asc' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            Antigo
+                        </button>
+                    </div>
                 </div>
                 <MatchHistoryTable
                     history={insights.history}
                     onSelectMatch={setSelectedMatch}
                 />
+
+                {/* Pagination Controls */}
+                {insights.pagination && insights.pagination.totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-4 py-4">
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                            className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-bold text-white transition-colors"
+                        >
+                            Anterior
+                        </button>
+                        <span className="text-sm text-gray-400 font-mono">
+                            Página <span className="text-white">{page}</span> de <span className="text-white">{insights.pagination.totalPages}</span>
+                        </span>
+                        <button
+                            onClick={() => setPage(p => Math.min(insights.pagination!.totalPages, p + 1))}
+                            disabled={page >= insights.pagination.totalPages}
+                            className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-bold text-white transition-colors"
+                        >
+                            Próximo
+                        </button>
+                    </div>
+                )}
             </section>
 
             {/* Side Panel Overlay */}

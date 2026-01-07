@@ -67,9 +67,12 @@ async function main() {
             console.log(`${logPrefix} Processing...`);
 
             try {
-                // Fetch Match IDs (Solo & Flex) - limit 100 each
-                const soloIds = await riotService.getRecentMatchIds(player.puuid, 420, MAX_MATCHES_PER_PLAYER);
-                const flexIds = await riotService.getRecentMatchIds(player.puuid, 440, MAX_MATCHES_PER_PLAYER);
+                // Fetch Match IDs (Solo & Flex) - limit 30 each (or ENV limit)
+                const limitEnv = process.env.MATCH_LIMIT ? parseInt(process.env.MATCH_LIMIT) : MAX_MATCHES_PER_PLAYER;
+                const limit = Number.isNaN(limitEnv) ? MAX_MATCHES_PER_PLAYER : limitEnv;
+
+                const soloIds = await riotService.getRecentMatchIds(player.puuid, 420, limit);
+                const flexIds = await riotService.getRecentMatchIds(player.puuid, 440, limit);
 
                 // Merge and dedup (NO SLICE - process everything found)
                 const targetIds = Array.from(new Set([...soloIds, ...flexIds]));
@@ -91,9 +94,14 @@ async function main() {
                     });
 
                     if (existingScore) {
-                        // console.log(`${matchPrefix} already processed (skip).`); 
-                        summary.matchesAlreadyProcessed++;
-                        continue;
+                        // FIX: Only skip if we have valid KDA (repair mode)
+                        // This forces re-ingestion for 0/0/0 records to populate the columns
+                        const hasKda = (existingScore.kills || 0) + (existingScore.deaths || 0) + (existingScore.assists || 0) > 0;
+                        if (hasKda) {
+                            // console.log(`${matchPrefix} already processed (skip).`); 
+                            summary.matchesAlreadyProcessed++;
+                            continue;
+                        }
                     }
 
                     try {
@@ -175,6 +183,10 @@ async function main() {
                             performanceScore: result.breakdown.performance,
                             objectivesScore: result.breakdown.objectives,
                             disciplineScore: result.breakdown.discipline,
+                            // KDA Columns (Critical for Frontend)
+                            kills: pData.kills,
+                            deaths: pData.deaths,
+                            assists: pData.assists,
                             metrics: {
                                 ...result.metrics,
                                 kills: pData.kills,
@@ -204,6 +216,10 @@ async function main() {
                                 performanceScore: result.breakdown.performance,
                                 objectivesScore: result.breakdown.objectives,
                                 disciplineScore: result.breakdown.discipline,
+                                // Fix KDA on Update too
+                                kills: pData.kills,
+                                deaths: pData.deaths,
+                                assists: pData.assists,
                                 metrics: scoreData.metrics,
                                 ratios: result.ratios
                             },

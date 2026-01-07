@@ -28,6 +28,11 @@ model Player {
   updatedAt     DateTime @updatedAt
 }
 
+model SystemState {
+  key   String @id
+  value String
+}
+
 model ChampionMastery {
   id             String   @id @default(uuid())
   

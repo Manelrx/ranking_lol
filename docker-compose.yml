@@ -1,18 +1,79 @@
-version: "3.9"
-
 services:
   postgres:
-    image: postgres:15
-    container_name: ranking_lol_postgres
-    restart: unless-stopped
+    image: postgres:16-alpine
+    container_name: ranking_db
+    restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ranking_lol
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-ranking_lol}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ranking_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d ranking_lol"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: ranking_api
+    restart: always
+    ports:
+      - "3333:3333"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin}@postgres:5432/${POSTGRES_DB:-ranking_lol}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ranking_network
+
+  jobs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: jobs
+    container_name: ranking_jobs
+    # CRITICAL: Singleton Enforcement
+    deploy:
+      replicas: 1
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin}@postgres:5432/${POSTGRES_DB:-ranking_lol}?schema=public
+      # Explicitly limit concurrency here if needed, but handled in code
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ranking_network
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        # For local docker-compose, we point to localhost:3333 because the browser accesses it
+        NEXT_PUBLIC_API_URL: http://localhost:3333
+    container_name: ranking_web
+    restart: always
+    ports:
+      - "3000:3000"
+    networks:
+      - ranking_network
 
 volumes:
-  pgdata:
+  postgres_data:
+
+networks:
+  ranking_network:
+    driver: bridge
