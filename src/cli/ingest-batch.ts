@@ -67,9 +67,9 @@ async function main() {
             console.log(`${logPrefix} Processing...`);
 
             try {
-                // Fetch Match IDs (Solo & Flex) - limit 30 each (or ENV limit)
-                const limitEnv = process.env.MATCH_LIMIT ? parseInt(process.env.MATCH_LIMIT) : MAX_MATCHES_PER_PLAYER;
-                const limit = Number.isNaN(limitEnv) ? MAX_MATCHES_PER_PLAYER : limitEnv;
+                // Fetch Match IDs (Solo & Flex) - limit 20 each (Optimized)
+                const limitEnv = process.env.MATCH_LIMIT ? parseInt(process.env.MATCH_LIMIT) : 20; // Default 20
+                const limit = Number.isNaN(limitEnv) ? 20 : limitEnv;
 
                 const soloIds = await riotService.getRecentMatchIds(player.puuid, 420, limit);
                 const flexIds = await riotService.getRecentMatchIds(player.puuid, 440, limit);
@@ -109,10 +109,10 @@ async function main() {
                         const match = await riotService.getMatchDetails(matchId) as unknown as IngestMatchDTO;
 
                         // --- CHECKS ---
-
+                        const matchDate = new Date(match.info.gameCreation);
                         // 1. Season Check
                         if (!isInActiveSeason(match.info.gameCreation)) {
-                            console.log(`${matchPrefix} ignored (outside season)`);
+                            console.log(`${matchPrefix} ignored (outside season: ${matchDate.toISOString()})`);
                             summary.matchesIgnored++;
                             continue;
                         }

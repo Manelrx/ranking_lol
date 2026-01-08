@@ -67,7 +67,11 @@ export interface PdlGainEntry {
     lp: number;
     pdlGain: number;
     trend: 'UP' | 'DOWN' | 'SAME';
-    profileIconId?: number | null; // Added
+    profileIconId?: number | null;
+    // Context
+    startTier?: string;
+    startRank?: string;
+    startLp?: number;
 }
 
 export interface PlayerStats {
@@ -112,7 +116,7 @@ export interface PlayerInsights {
 }
 
 export async function getSeasonRanking(queue: 'SOLO' | 'FLEX' = 'SOLO', limit: number = 100): Promise<RankingEntry[]> {
-    const res = await fetch(`${API_URL}/ranking/season?queue=${queue}&limit=${limit}`);
+    const res = await fetch(`${API_URL}/ranking/season?queue=${queue}&limit=${limit}&_t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed to fetch ranking');
     return res.json();
 }
@@ -123,8 +127,8 @@ export async function getRankingByElo(queue: 'SOLO' | 'FLEX', tier: string, limi
     return res.json();
 }
 
-export async function getPdlGainRanking(queue: 'SOLO' | 'FLEX' = 'SOLO', limit: number = 20): Promise<PdlGainEntry[]> {
-    const res = await fetch(`${API_URL}/ranking/pdl-gain?queue=${queue}&limit=${limit}`);
+export async function getPdlGainRanking(queue: 'SOLO' | 'FLEX' = 'SOLO', limit: number = 20, period: string = 'GENERAL'): Promise<PdlGainEntry[]> {
+    const res = await fetch(`${API_URL}/ranking/pdl-gain?queue=${queue}&limit=${limit}&period=${period}`);
     if (!res.ok) throw new Error('Failed to fetch PDL ranking');
     return res.json();
 }
@@ -139,20 +143,31 @@ export interface HighlightPlayer {
     puuid: string;
     gameName: string;
     tagLine: string;
-    profileIconId?: number;
+    profileIconId?: number | null;
     value: string | number;
     label: string;
+    championName?: string; // New for Mono
 }
 
-export interface WeeklyHighlights {
+export interface PeriodHighlights {
     period: { start: string; end: string };
+    periodLabel: string;
     mvp: HighlightPlayer | null;
-    lpMachine: HighlightPlayer | null;
     kdaKing: HighlightPlayer | null;
     mostActive: HighlightPlayer | null;
     highestDmg: HighlightPlayer | null;
-    bestVision: HighlightPlayer | null;
-    periodLabel: string; // Added for frontend
+    survivor: HighlightPlayer | null;
+    visionary: HighlightPlayer | null;
+    stomper: HighlightPlayer | null;
+    rich: HighlightPlayer | null;
+    farmer: HighlightPlayer | null;
+    lpMachine: HighlightPlayer | null;
+    highestScore: HighlightPlayer | null;
+
+    // New Metrics (Phase 20)
+    mono: HighlightPlayer | null;
+    ocean: HighlightPlayer | null;
+    objective: HighlightPlayer | null;
 }
 
 export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO', page: number = 1, limit: number = 10, sort: 'asc' | 'desc' = 'desc'): Promise<PlayerInsights> {
@@ -161,11 +176,11 @@ export async function getPlayerInsights(puuid: string, queue: 'SOLO' | 'FLEX' = 
     return res.json();
 }
 
-export async function getHighlights(queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<WeeklyHighlights> {
-    const res = await fetch(`${API_URL}/ranking/highlights?queue=${queue}`);
-    if (!res.ok) throw new Error('Failed to fetch highlights');
+export const getHighlights = async (queue: 'SOLO' | 'FLEX' = 'SOLO', period: "WEEKLY" | "MONTHLY" | "GENERAL" = "WEEKLY"): Promise<PeriodHighlights> => {
+    const res = await fetch(`${API_URL}/ranking/insights?queue=${queue}&period=${period}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error("Failed to fetch highlights");
     return res.json();
-}
+};
 
 // PDL Evolution Types
 export interface PdlSnapshot {
@@ -185,5 +200,11 @@ export interface PdlEvolution {
 export async function getPdlEvolution(puuid: string, queue: 'SOLO' | 'FLEX' = 'SOLO'): Promise<PdlEvolution | null> {
     const res = await fetch(`${API_URL}/player/${puuid}/pdl-evolution?queue=${queue}`);
     if (!res.ok) return null; // Return null if not found/error, allowing UI to hide it
+    return res.json();
+}
+
+export async function getSystemStatus(): Promise<{ lastUpdate: string | null; nextUpdate: string | null }> {
+    const res = await fetch(`${API_URL}/status?_t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return { lastUpdate: null, nextUpdate: null };
     return res.json();
 }

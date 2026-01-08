@@ -10,7 +10,8 @@ import Link from "next/link";
 import { Search, Trophy, TrendingUp } from "lucide-react";
 
 import { Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useQueue } from "@/contexts/QueueContext";
 
 function PlayersContent() {
     const [players, setPlayers] = useState<RankingEntry[]>([]);
@@ -18,14 +19,15 @@ function PlayersContent() {
     const [filter, setFilter] = useState("");
 
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const queue = (searchParams.get('queue')?.toUpperCase() === 'FLEX' ? 'FLEX' : 'SOLO') as 'SOLO' | 'FLEX';
+    const { queueType } = useQueue();
+    // const searchParams = useSearchParams(); // Removed
+    // const queue = ... // Removed, using queueType directly
 
     useEffect(() => {
         const fetch = async () => {
             setLoading(true);
             try {
-                const res = await getSeasonRanking(queue, 100);
+                const res = await getSeasonRanking(queueType, 100);
                 setPlayers(res);
             } catch (err) {
                 console.error(err);
@@ -34,14 +36,9 @@ function PlayersContent() {
             }
         };
         fetch();
-    }, [queue]);
+    }, [queueType]);
 
-    const toggleQueue = (newQueue: "SOLO" | "FLEX") => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (newQueue === "SOLO") params.delete("queue");
-        else params.set("queue", "FLEX");
-        router.push(`?${params.toString()}`);
-    };
+    // toggleQueue removed
 
     const filtered = players.filter(p =>
         p.gameName.toLowerCase().includes(filter.toLowerCase()) ||
@@ -58,27 +55,7 @@ function PlayersContent() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                    {/* Queue Toggle */}
-                    <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 backdrop-blur-sm self-start sm:self-auto">
-                        <button
-                            onClick={() => toggleQueue("SOLO")}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${queue === "SOLO"
-                                ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
-                                : "text-gray-400 hover:text-white hover:bg-white/5"
-                                }`}
-                        >
-                            Solo/Duo
-                        </button>
-                        <button
-                            onClick={() => toggleQueue("FLEX")}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${queue === "FLEX"
-                                ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
-                                : "text-gray-400 hover:text-white hover:bg-white/5"
-                                }`}
-                        >
-                            Flex
-                        </button>
-                    </div>
+                    {/* Queue Toggle Removed - Uses Global Topbar */}
 
                     <div className="relative w-full md:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
@@ -104,7 +81,7 @@ function PlayersContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {filtered.map((player) => (
                         <Card key={player.puuid} variant="glass" className="p-0 overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
-                            <Link href={`/player/${player.puuid}?queue=${queue}`}>
+                            <Link href={`/player/${player.puuid}?queue=${queueType}`}>
                                 <div className="p-6 flex flex-col items-center text-center relative">
                                     {/* Hover Effect Background */}
                                     <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/0 to-indigo-500/0 group-hover:to-indigo-500/5 transition-all duration-500" />
@@ -163,7 +140,7 @@ function PlayersContent() {
 
             {filtered.length === 0 && !loading && (
                 <div className="text-center py-20 text-gray-500">
-                    Nenhum jogador encontrado com esse nome na fila <strong>{queue === 'SOLO' ? 'Solo/Duo' : 'Flex'}</strong>.
+                    Nenhum jogador encontrado com esse nome na fila <strong>{queueType === 'SOLO' ? 'Solo/Duo' : 'Flex'}</strong>.
                 </div>
             )}
         </div>

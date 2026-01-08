@@ -11,15 +11,7 @@ const QUEUE_MAP = {
     'RANKED_FLEX_SR': 'FLEX'
 };
 
-interface SummonerDTO {
-    id: string;
-    accountId: string;
-    puuid: string;
-    name: string;
-    profileIconId: number;
-    revisionDate: number;
-    summonerLevel: number;
-}
+
 
 async function main() {
     console.log(`\n🔄 Starting Sync Ranks Job...`);
@@ -49,30 +41,10 @@ async function main() {
                     continue;
                 }
 
-                // 2. Fetch Summoner ID (using validated PUUID)
-                let summonerId = player.summonerId;
-
-                // Explicitly cast to internal interface to help TS/Runtime boundary
-                const sumData = await riotService.getSummonerByPuuid(player.puuid) as SummonerDTO;
-
-                if (!sumData || !sumData.id) {
-                    // Log keys to help debug "Phantom ID" if it happens again
-                    if (sumData) console.log("Summoner Keys:", Object.keys(sumData));
-                    throw new Error(`API returned invalid Summoner Data (Missing ID) for ${player.gameName}`);
-                }
-
-                summonerId = sumData.id;
-
-                // Update DB with SummonerID only (NEVER update PUUID here)
-                if (summonerId !== player.summonerId) {
-                    await prisma.player.update({
-                        where: { puuid: player.puuid },
-                        data: { summonerId }
-                    });
-                }
-
-                // 2. Fetch League Entries
-                const entries = await riotService.getLeagueEntries(summonerId);
+                // 2. Fetch League Entries directly via PUUID (Bypassing Summoner-V4)
+                // This is more robust for Auditor keys and saves API calls
+                console.log(`[SYNC] Fetching entries for ${player.gameName} directly by PUUID...`);
+                const entries = await riotService.getLeagueEntriesByPuuid(player.puuid);
 
                 // 3. Process Queues
                 const queuesToSync = ['RANKED_SOLO_5x5', 'RANKED_FLEX_SR'];
@@ -108,9 +80,12 @@ async function main() {
                                 lp: entry.leaguePoints
                             }
                         });
-                        console.log(`[SYNC] ${player.gameName} ${mappedQueue} -> ${entry.tier} ${entry.rank} ${entry.leaguePoints} LP (${lastSnap ? 'UPDATED' : 'NEW'})`);
+                        console.log(`[SYNC] ${player.gameName} ${mappedQueue} -> ${entry.tier} ${entry.rank} ${entry.leaguePoints} LP (UPDATED)`);
                     } else {
-                        // console.log(`[SYNC] ${player.gameName} ${mappedQueue} -> UNCHANGED`);
+                        // Debug Log for troubleshooting
+                        // console.log(`[SYNC] ${player.gameName} ${mappedQueue} -> ${entry.tier} ${entry.rank} ${entry.leaguePoints} LP (UNCHANGED - Last: ${lastSnap?.createdAt.toISOString()})`);
+                        // For detailed debug now:
+                        console.log(`[DEBUG] ${player.gameName} ${mappedQueue} API(${currentHash}) vs DB(${lastHash})`);
                     }
                 }
 

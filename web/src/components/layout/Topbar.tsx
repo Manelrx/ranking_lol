@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useQueue } from "@/contexts/QueueContext";
 import { Menu } from "lucide-react";
 
 interface TopbarProps {
@@ -9,20 +8,7 @@ interface TopbarProps {
 }
 
 export function Topbar({ onMenuClick }: TopbarProps) {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const currentQueue = searchParams.get("queue")?.toUpperCase() === "FLEX" ? "FLEX" : "SOLO";
-
-    const toggleQueue = useCallback(
-        (queue: "SOLO" | "FLEX") => {
-            const params = new URLSearchParams(searchParams.toString());
-            if (queue === "SOLO") params.delete("queue");
-            else params.set("queue", "FLEX");
-
-            router.push(`?${params.toString()}`);
-        },
-        [router, searchParams]
-    );
+    const { queueType, setQueueType } = useQueue();
 
     return (
         <header className="h-16 flex items-center justify-between px-4 lg:px-8 border-b border-white/5 bg-[var(--color-surface)]/80 backdrop-blur-md sticky top-0 z-40 transition-all">
@@ -47,19 +33,19 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             {/* Right: Queue Toggle */}
             <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 backdrop-blur-sm">
                 <button
-                    onClick={() => toggleQueue("SOLO")}
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${currentQueue === "SOLO"
-                            ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
-                            : "text-gray-400 hover:text-white hover:bg-white/5"
+                    onClick={() => setQueueType("SOLO")}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${queueType === "SOLO"
+                        ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
+                        : "text-gray-400 hover:text-white hover:bg-white/5"
                         }`}
                 >
                     Solo/Duo
                 </button>
                 <button
-                    onClick={() => toggleQueue("FLEX")}
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${currentQueue === "FLEX"
-                            ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
-                            : "text-gray-400 hover:text-white hover:bg-white/5"
+                    onClick={() => setQueueType("FLEX")}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${queueType === "FLEX"
+                        ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
+                        : "text-gray-400 hover:text-white hover:bg-white/5"
                         }`}
                 >
                     Flex

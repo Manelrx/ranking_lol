@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { getPdlGainRanking, PdlGainEntry } from "@/lib/api";
 import { EloBadge } from "@/components/EloBadge";
 import { PlayerAvatar } from "@/components/ui/PlayerAvatar";
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { useQueue } from "@/contexts/QueueContext";
 
 export default function PdlRankingPage() {
-    const searchParams = useSearchParams();
-    const queue = (searchParams.get("queue")?.toUpperCase() === "FLEX" ? "FLEX" : "SOLO") as "SOLO" | "FLEX";
+    const { queueType } = useQueue();
+    const [period, setPeriod] = useState<'WEEKLY' | 'MONTHLY' | 'GENERAL'>('GENERAL');
 
     const [data, setData] = useState<PdlGainEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -20,7 +20,7 @@ export default function PdlRankingPage() {
         const fetch = async () => {
             setLoading(true);
             try {
-                const res = await getPdlGainRanking(queue);
+                const res = await getPdlGainRanking(queueType, 20, period);
                 setData(res);
             } catch (err) {
                 console.error(err);
@@ -29,7 +29,7 @@ export default function PdlRankingPage() {
             }
         };
         fetch();
-    }, [queue]);
+    }, [queueType, period]);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
@@ -42,24 +42,29 @@ export default function PdlRankingPage() {
                         Maiores Subidas (PDL)
                     </h2>
                     <p className="text-gray-400 mt-2 ml-14">
-                        Quem está escalando (ou caindo) mais rápido na Temporada.
+                        Quem está escalando (ou caindo) mais rápido no período.
                     </p>
                 </div>
 
-                {/* Queue Toggles */}
-                <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
-                    <Link
-                        href={`?queue=solo`}
-                        className={`px-6 py-2 rounded-md font-bold text-sm transition-all ${queue === 'SOLO' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                <div className="bg-black/40 p-1 rounded-lg flex items-center border border-white/5 h-fit self-start md:self-center">
+                    <button
+                        onClick={() => setPeriod('GENERAL')}
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${period === 'GENERAL' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
                     >
-                        SOLO/DUO
-                    </Link>
-                    <Link
-                        href={`?queue=flex`}
-                        className={`px-6 py-2 rounded-md font-bold text-sm transition-all ${queue === 'FLEX' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                        Geral
+                    </button>
+                    <button
+                        onClick={() => setPeriod('MONTHLY')}
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${period === 'MONTHLY' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
                     >
-                        FLEX
-                    </Link>
+                        Mensal
+                    </button>
+                    <button
+                        onClick={() => setPeriod('WEEKLY')}
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${period === 'WEEKLY' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        Semanal
+                    </button>
                 </div>
             </header>
 
@@ -98,10 +103,26 @@ export default function PdlRankingPage() {
                                             </Link>
                                         </td>
                                         <td className="p-4">
-                                            <EloBadge tier={player.tier} rank={player.rank} />
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    <EloBadge tier={player.tier} rank={player.rank} />
+                                                    <span className="text-gray-400 text-sm font-mono">
+                                                        {player.lp} PDL
+                                                    </span>
+                                                </div>
+                                                {/* Hover Start Details */}
+                                                {player.startTier && (
+                                                    <div className="text-[10px] text-gray-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        Iniciou: {player.startTier} {player.startRank} ({player.startLp} PDL)
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="p-4 text-right">
-                                            <span className={`text-lg font-bold font-mono tracking-tight ${player.pdlGain > 0 ? "text-emerald-400" : player.pdlGain < 0 ? "text-red-400" : "text-gray-400"}`}>
+                                            <span
+                                                className={`text-lg font-bold font-mono tracking-tight ${player.pdlGain > 0 ? "text-emerald-400" : player.pdlGain < 0 ? "text-red-400" : "text-gray-400"}`}
+                                                title={`Iniciou em: ${player.startTier} ${player.startRank} (${player.startLp} PDL)`}
+                                            >
                                                 {player.pdlGain > 0 ? "+" : ""}{player.pdlGain}
                                             </span>
                                             <span className="text-xs text-gray-500 ml-1">PDL</span>
@@ -129,7 +150,7 @@ export default function PdlRankingPage() {
                         </table>
                         {data.length === 0 && (
                             <div className="p-12 text-center text-gray-500">
-                                Sem dados suficientes para calcular ganhos na temporada.
+                                Sem dados suficientes para este período.
                             </div>
                         )}
                     </div>

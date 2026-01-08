@@ -116,19 +116,51 @@ async function startScheduler() {
         }
     };
 
-    // 1. Ingest & Rank Sync (Every 6 Hours)
-    // 0 */6 * * * -> At minute 0 past hour 0, 6, 12, and 18.
-    new CronJob('0 */6 * * *', async () => {
-        if (isJobRunning) return;
-        isJobRunning = true;
+    // 1. Ingest & Rank Sync (Resilient Loop)
+    // Replaces rigid CronJob '0 */6 * * *' to allow retries on failure.
+    const runIngestLoop = async () => {
+        let success = false;
         try {
-            // Serial Execution
-            await runScript('sync-ranks.ts');
-            await runScript('ingest-batch.ts');
+            if (!isJobRunning) {
+                isJobRunning = true;
+                console.log('🔄 [SCHEDULER] Starting Update Cycle...');
+
+                // Serial Execution
+                await runScript('sync-ranks.ts');
+                await runScript('ingest-batch.ts');
+
+                // Track Last Update ONLY on Success
+                await prisma.systemState.upsert({
+                    where: { key: 'LAST_UPDATE' },
+                    update: { value: new Date().toISOString() },
+                    create: { key: 'LAST_UPDATE', value: new Date().toISOString() }
+                });
+                console.log('✅ [SCHEDULER] Update Cycle Complete & Timestamped.');
+                success = true;
+            } else {
+                console.log('⚠️ [SCHEDULER] Skipping Update Cycle: Job already running.');
+                // If skipped because busy, we might want to retry sooner or just wait standard time.
+                // Let's treat as "wait standard time" to avoid spamming.
+                success = true;
+            }
+        } catch (error) {
+            console.error('❌ [SCHEDULER] Update Cycle Failed:', error);
+            success = false;
         } finally {
             isJobRunning = false;
+
+            // Schedule next run
+            const delayMinutes = success ? 360 : 30; // 6 Hours vs 30 Minutes
+            const nextRun = new Date(Date.now() + delayMinutes * 60 * 1000);
+
+            console.log(`⏳ [SCHEDULER] Next Update Cycle in ${delayMinutes} minutes (${nextRun.toLocaleTimeString()})`);
+            setTimeout(runIngestLoop, delayMinutes * 60 * 1000);
         }
-    }, null, true, 'America/Sao_Paulo');
+    };
+
+    // Start the loop (Initial run immediately or with slight delay?)
+    // Let's run immediately to ensure data is fresh on restart
+    runIngestLoop();
 
     // 2. Daily Snapshot (00:00)
     // We assume snapshot.ts creates the PdlDailyStats? 

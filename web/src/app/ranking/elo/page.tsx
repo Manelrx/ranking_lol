@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+// import { useSearchParams } from "next/navigation"; // Removed
 import { getSeasonRanking, RankingEntry } from "@/lib/api";
 import { RankingTable } from "@/components/RankingTable";
 import { Tabs } from "@/components/ui/Tabs";
 import { Card } from "@/components/ui/Card";
 import { Trophy, Medal, Crown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQueue } from "@/contexts/QueueContext"; // Added
 
 // Defined Tiers for Tabs
 const TIERS = [
+    // ... (TIERS array remains same)
     { id: "ALL", label: "Todos" },
     { id: "CHALLENGER", label: "Challenger" },
     { id: "GRANDMASTER", label: "Grandmaster" },
@@ -24,7 +26,7 @@ const TIERS = [
     { id: "IRON", label: "Iron" },
 ];
 
-// Helper to compare Elo
+// ... (getEloValue helper remains same)
 const getEloValue = (p: RankingEntry) => {
     const tierScores: Record<string, number> = {
         CHALLENGER: 90000, GRANDMASTER: 80000, MASTER: 70000,
@@ -38,8 +40,9 @@ const getEloValue = (p: RankingEntry) => {
 };
 
 export default function EloRankingPage() {
-    const searchParams = useSearchParams();
-    const queue = (searchParams.get("queue")?.toUpperCase() === "FLEX" ? "FLEX" : "SOLO") as "SOLO" | "FLEX";
+    // const searchParams = useSearchParams(); // Removed
+    // const queue = ... // Removed
+    const { queueType } = useQueue(); // Added
 
     const [players, setPlayers] = useState<RankingEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -49,11 +52,11 @@ export default function EloRankingPage() {
     useEffect(() => {
         setLoading(true);
         // Using getSeasonRanking to get everyone and filter client-side for "Instant" feel
-        getSeasonRanking(queue).then((res) => {
+        getSeasonRanking(queueType).then((res) => { // Updated to queueType
             setPlayers(res);
             setLoading(false);
         });
-    }, [queue]);
+    }, [queueType]); // Updated dependency
 
     const filteredPlayers = useMemo(() => {
         if (viewMode === "POINTS") {

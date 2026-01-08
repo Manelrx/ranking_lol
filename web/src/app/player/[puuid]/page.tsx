@@ -10,13 +10,15 @@ import { PlayerHeader } from "@/components/PlayerHeader";
 import { StatsGrid } from "@/components/StatsGrid";
 import { TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { useQueue } from "@/contexts/QueueContext";
 
 export default function PlayerProfile({ params }: { params: Promise<{ puuid: string }> }) {
     const { puuid } = use(params);
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const queueParam = searchParams.get("queue")?.toUpperCase();
-    const queue = (queueParam === "FLEX" ? "FLEX" : "SOLO") as "SOLO" | "FLEX";
+    const { queueType, setQueueType } = useQueue();
+
+    // Use global context instead of URL params
+    const queue = queueType;
 
     const [evolution, setEvolution] = useState<PdlEvolution | null>(null);
     const [history, setHistory] = useState<PlayerHistory | null>(null);
@@ -27,6 +29,19 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
     // Pagination & Sort State
     const [page, setPage] = useState(1);
     const [sort, setSort] = useState<'asc' | 'desc'>('desc');
+    const [chartFilter, setChartFilter] = useState<'ALL' | 'MONTHLY' | 'WEEKLY'>('ALL');
+
+    const getFilteredHistory = () => {
+        if (!history) return [];
+        const now = new Date();
+        const cutoff = new Date();
+
+        if (chartFilter === 'WEEKLY') cutoff.setDate(now.getDate() - 7);
+        if (chartFilter === 'MONTHLY') cutoff.setDate(now.getDate() - 30);
+        if (chartFilter === 'ALL') return history.history;
+
+        return history.history.filter(h => new Date(h.date) >= cutoff);
+    };
 
     useEffect(() => {
         const fetch = async () => {
@@ -56,9 +71,9 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
     }, [queue, sort]);
 
     const handleQueueChange = (newQueue: 'SOLO' | 'FLEX') => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("queue", newQueue.toLowerCase());
-        router.push(`?${params.toString()}`);
+        setQueueType(newQueue);
+        // Optional: Update URL for sharing purposes, but source of truth is Context
+        // router.push(`?queue=${newQueue.toLowerCase()}`, { scroll: false });
     };
 
     if (loading) {
@@ -113,17 +128,28 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-bold text-white">Evolução de PDL</h3>
-                                    <p className="text-xs text-gray-500">Histórico da Temporada Atual</p>
+                                    <p className="text-xs text-gray-500">Histórico de Ranqueada</p>
                                 </div>
                             </div>
-                            {evolution && (
-                                <div className={`px-3 py-1 rounded-full border ${evolution.gain > 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : evolution.gain < 0 ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-gray-500/10 border-gray-500/30 text-gray-400'}`}>
-                                    <span className="text-sm font-bold">{evolution.gain > 0 ? '+' : ''}{evolution.gain} PDL</span>
-                                </div>
-                            )}
+
+                            {/* Chart Controls */}
+                            <div className="flex items-center gap-2 bg-black/20 p-1 rounded-lg">
+                                {(['ALL', 'MONTHLY', 'WEEKLY'] as const).map((f) => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setChartFilter(f)}
+                                        className={`px-3 py-1 text-[10px] font-bold rounded transition-colors ${chartFilter === f
+                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                            : 'text-gray-500 hover:text-white'
+                                            }`}
+                                    >
+                                        {f === 'ALL' ? 'GERAL' : f === 'MONTHLY' ? 'MÊS' : 'SEMANA'}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         <div className="h-[300px] w-full">
-                            <PdlChart history={history.history} />
+                            <PdlChart history={getFilteredHistory()} />
                         </div>
                     </Card>
                 </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+// import { useSearchParams } from 'next/navigation'; // Removed
 import { getSeasonRanking, RankingEntry } from '@/lib/api';
 import { RankingTable } from '@/components/RankingTable';
 import { TrendChart } from '@/components/TrendChart';
@@ -11,9 +11,11 @@ import { motion } from 'framer-motion';
 
 import { Suspense } from 'react';
 
+import { useQueue } from '@/contexts/QueueContext';
+
 function HomeContent() {
-  const searchParams = useSearchParams();
-  const queue = (searchParams.get('queue')?.toUpperCase() === 'FLEX' ? 'FLEX' : 'SOLO') as 'SOLO' | 'FLEX';
+  const { queueType } = useQueue();
+  const queue = queueType;
 
   const [data, setData] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);

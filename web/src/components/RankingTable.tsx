@@ -86,9 +86,12 @@ export function RankingTable({ data }: { data: RankingEntry[] }) {
                                     </Link>
                                 </td>
 
-                                {/* Elo Badge */}
-                                <td className="p-4 flex justify-center">
+                                {/* Elo Badge + LP */}
+                                <td className="p-4 flex flex-col items-center justify-center">
                                     <EloBadge tier={player.tier} rank={player.rankDivision} />
+                                    <span className="text-[10px] uppercase font-bold text-gray-500 mt-1 tracking-wider">
+                                        {player.lp} PDL
+                                    </span>
                                 </td>
 
                                 {/* Score */}

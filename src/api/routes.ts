@@ -9,6 +9,11 @@ export async function rankingRoutes(fastify: FastifyInstance) {
     interface RankingQuery { queue?: string; limit?: number; }
     fastify.get<{ Querystring: RankingQuery }>('/api/ranking/season', async (request, reply) => {
         const { queue = 'SOLO', limit = 100 } = request.query;
+
+        // Force No Cache
+        reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        reply.header('Expires', '0');
+
         // Validate queue
         const q = queue === 'FLEX' ? 'FLEX' : 'SOLO';
         const l = Number(limit) || 100;
@@ -75,14 +80,15 @@ export async function rankingRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // 6. Weekly Highlights
-    interface HighlightsQuery { queue?: string; }
-    fastify.get<{ Querystring: HighlightsQuery }>('/api/ranking/highlights', async (request, reply) => {
-        const { queue = 'SOLO' } = request.query;
+    // 6. Highlights (Weekly/Monthly)
+    interface HighlightsQuery { queue?: string; period?: string; }
+    fastify.get<{ Querystring: HighlightsQuery }>('/api/ranking/insights', async (request, reply) => {
+        const { queue = 'SOLO', period = 'WEEKLY' } = request.query;
         const q = queue === 'FLEX' ? 'FLEX' : 'SOLO';
+        const p = period === 'MONTHLY' ? 'MONTHLY' : 'WEEKLY';
 
         try {
-            const data = await rankingService.getWeeklyHighlights(q);
+            const data = await rankingService.getHighlights(q, p);
             return data;
         } catch (error) {
             console.error(error);
@@ -123,6 +129,22 @@ export async function rankingRoutes(fastify: FastifyInstance) {
             return data;
         } catch (error) {
             console.error(error);
+            reply.status(500).send({ error: 'Internal Server Error' });
+        }
+    });
+    // 7. System Status
+    fastify.get('/api/status', async (request, reply) => {
+        console.log(`[API] /status - Request received at ${new Date().toISOString()}`);
+        reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
+
+        try {
+            const data = await rankingService.getSystemStatus();
+            console.log(`[API] /status - Returning: ${JSON.stringify(data)}`);
+            return data;
+        } catch (error) {
+            console.error('[API] /status - ERROR:', error);
             reply.status(500).send({ error: 'Internal Server Error' });
         }
     });

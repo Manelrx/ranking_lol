@@ -1,6 +1,6 @@
 "use client";
 
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { PlayerHistoryEntry } from "@/lib/api";
 
 // Tier Base Values
@@ -18,6 +18,17 @@ const TIER_VALUES: Record<string, number> = {
     UNRANKED: 0
 };
 
+const TIER_LABELS = {
+    0: "Ferro",
+    400: "Bronze",
+    800: "Prata",
+    1200: "Ouro",
+    1600: "Platina",
+    2000: "Esmeralda",
+    2400: "Diamante",
+    2800: "Mestre+"
+};
+
 export function PdlChart({ history }: { history: PlayerHistoryEntry[] }) {
     if (!history || history.length === 0) return (
         <div className="flex items-center justify-center h-full text-gray-500 text-sm">
@@ -25,75 +36,110 @@ export function PdlChart({ history }: { history: PlayerHistoryEntry[] }) {
         </div>
     );
 
-    const data = history.map(h => ({
+    // Filter duplicates by day (take last entry of each day)
+    const uniqueDays = new Map();
+    history.forEach(h => {
+        const d = new Date(h.date).toLocaleDateString();
+        uniqueDays.set(d, h);
+    });
+
+    // Convert back to array and sort
+    const sortedHistory = Array.from(uniqueDays.values())
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const data = sortedHistory.map(h => ({
         date: new Date(h.date).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' }),
         value: (TIER_VALUES[h.tier] || 0) + h.lp,
         tier: h.tier,
+        rank: h.rank,
         lp: h.lp,
         fullDate: new Date(h.date).toLocaleDateString()
     }));
 
+    // Calculate domain padding
+    const minValue = Math.min(...data.map(d => d.value));
+    const maxValue = Math.max(...data.map(d => d.value));
+    // Round to nearest tier boundary
+    const minDomain = Math.floor(minValue / 400) * 400;
+    const maxDomain = Math.ceil(maxValue / 400) * 400 + 100;
+
     return (
         <div className="w-full h-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <defs>
                         <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                         </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis
                         dataKey="date"
                         stroke="#52525b"
-                        tick={{ fill: '#71717a', fontSize: 11 }}
+                        tick={{ fill: '#71717a', fontSize: 10 }}
                         tickLine={false}
                         axisLine={false}
                         dy={10}
+                        minTickGap={30} // Prevent overcrowding
                     />
                     <YAxis
                         stroke="#52525b"
-                        tick={{ fill: '#71717a', fontSize: 11 }}
+                        tick={{ fill: '#71717a', fontSize: 10, fontWeight: 'bold' }}
                         tickLine={false}
                         axisLine={false}
-                        domain={['auto', 'auto']}
+                        domain={[minDomain, maxDomain]}
+                        ticks={[0, 400, 800, 1200, 1600, 2000, 2400, 2800]}
                         tickFormatter={(value) => {
-                            // Reverse lookup approximately
-                            if (value >= 2800) return "CHALL";
+                            if (value >= 2800) return "MST";
                             if (value >= 2400) return "DIA";
-                            if (value >= 2000) return "EMERALD";
-                            if (value >= 1600) return "PLAT";
-                            if (value >= 1200) return "GOLD";
-                            if (value >= 800) return "SILVER";
-                            if (value >= 400) return "BRONZE";
-                            return "IRON";
+                            if (value >= 2000) return "EME";
+                            if (value >= 1600) return "PLA";
+                            if (value >= 1200) return "OUR";
+                            if (value >= 800) return "PRA";
+                            if (value >= 400) return "BRO";
+                            return "FER";
                         }}
                     />
                     <Tooltip
                         contentStyle={{
                             backgroundColor: "#18181b",
                             borderColor: "rgba(255,255,255,0.1)",
-                            borderRadius: "12px",
+                            borderRadius: "8px",
                             boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-                            color: "#E5E7EB"
+                            color: "#E5E7EB",
+                            padding: "8px 12px"
                         }}
                         itemStyle={{ color: "#E5E7EB", fontSize: "12px" }}
                         formatter={(value: any, name: any, props: any) => [
-                            <span key="val" className="font-bold text-white">{props.payload.tier} <span className="text-[var(--color-primary)]">{props.payload.lp} PDL</span></span>,
+                            <span key="val" className="font-bold flex items-center gap-2">
+                                <span className={
+                                    props.payload.tier === 'CHALLENGER' ? 'text-yellow-400' :
+                                        props.payload.tier === 'GRANDMASTER' ? 'text-red-400' :
+                                            props.payload.tier === 'MASTER' ? 'text-purple-400' :
+                                                props.payload.tier === 'DIAMOND' ? 'text-blue-400' :
+                                                    props.payload.tier === 'EMERALD' ? 'text-emerald-400' :
+                                                        'text-white'
+                                }>
+                                    {props.payload.tier} {props.payload.rank}
+                                </span>
+                                <span className="text-gray-400">|</span>
+                                <span className="text-white">{props.payload.lp} PDL</span>
+                            </span>,
                             '' // Hide label
                         ]}
-                        labelFormatter={(label) => <span className="text-gray-400 text-xs mb-2 block">{label}</span>}
+                        labelFormatter={(label) => <span className="text-gray-500 text-[10px] mb-1 block uppercase tracking-wide">{label}</span>}
                         cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
                     />
                     <Area
                         type="monotone"
                         dataKey="value"
-                        stroke="#6366f1"
-                        strokeWidth={3}
+                        stroke="#10b981"
+                        strokeWidth={2}
                         fillOpacity={1}
                         fill="url(#colorValue)"
-                        activeDot={{ r: 6, fill: '#fff', stroke: '#6366f1', strokeWidth: 2 }}
+                        activeDot={{ r: 4, fill: '#fff', stroke: '#10b981', strokeWidth: 2 }}
+                        animationDuration={1000}
                     />
                 </AreaChart>
             </ResponsiveContainer>

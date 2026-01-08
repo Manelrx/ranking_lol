@@ -1,4 +1,7 @@
-"use client";
+import { useEffect, useState } from "react";
+import { getSystemStatus } from "@/lib/api";
+// import { formatDistanceToNow } from "date-fns"; // Removed
+// import { ptBR } from "date-fns/locale"; // Removed
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,10 +22,38 @@ const MENU_ITEMS = [
 
 export function Sidebar({ onClose }: SidebarProps) {
     const pathname = usePathname();
+    const [status, setStatus] = useState<{ lastUpdate: string | null; nextUpdate: string | null }>({ lastUpdate: null, nextUpdate: null });
+    const [timeLeft, setTimeLeft] = useState<string>("");
+
+    useEffect(() => {
+        getSystemStatus().then(setStatus);
+    }, []);
+
+    useEffect(() => {
+        if (!status.nextUpdate) return;
+
+        const tick = () => {
+            const now = new Date();
+            const next = new Date(status.nextUpdate!);
+            const diff = next.getTime() - now.getTime();
+
+            if (diff <= 0) {
+                setTimeLeft("Em andamento...");
+            } else {
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                setTimeLeft(`${hours}h ${minutes}m`);
+            }
+        };
+
+        tick();
+        const interval = setInterval(tick, 60000); // Update every minute
+        return () => clearInterval(interval);
+    }, [status.nextUpdate]);
 
     return (
         <aside className="h-full bg-[var(--color-surface)]/95 backdrop-blur-xl border-r border-white/10 flex flex-col shadow-2xl">
-            {/* Header / Logo */}
+            {/* Header / Logo ... */}
             <div className="h-16 flex items-center justify-between px-6 border-b border-white/10 bg-black/20">
                 <div className="flex items-center">
                     <Activity className="w-6 h-6 text-emerald-400 mr-3 animate-pulse" />
@@ -36,7 +67,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 </button>
             </div>
 
-            {/* Navigation */}
+            {/* Navigation ... */}
             <nav className="flex-1 py-6 px-3 space-y-1">
                 {MENU_ITEMS.map((item) => {
                     const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
@@ -65,10 +96,27 @@ export function Sidebar({ onClose }: SidebarProps) {
                 })}
             </nav>
 
-            {/* Footer / Version */}
-            <div className="p-4 border-t border-white/10 bg-black/20">
-                <div className="text-xs text-gray-500 text-center font-mono">
-                    Season 2026 • v2.0
+            {/* Footer / Status */}
+            <div className="p-4 border-t border-white/10 bg-black/20 space-y-3">
+
+                {/* Status Box */}
+                <div className="bg-black/40 rounded-lg p-3 border border-white/5">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-gray-400">Próxima Atualização</span>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-xs font-mono text-emerald-400 font-bold">{timeLeft || "--"}</span>
+                        </div>
+                    </div>
+                    {status.lastUpdate && (
+                        <div className="text-[10px] text-gray-600 text-right">
+                            Última: {new Date(status.lastUpdate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                    )}
+                </div>
+
+                <div className="text-xs text-gray-600 text-center font-mono pt-1 border-t border-white/5">
+                    Season 2026 • v2.1
                 </div>
             </div>
         </aside>

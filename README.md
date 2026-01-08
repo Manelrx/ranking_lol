@@ -10,54 +10,60 @@ Sistema de ranking anual para League of Legends, focado em consistência e perfo
 -   **CLI de Teste**: Ferramenta para calcular e validar o score de qualquer partida em tempo real.
 -   **Filtros Rígidos**: Ignora remakes (<10min) e partidas fora da Season.
 
+## 🚀 Configuração com Docker (Recomendado)
+
+O projeto está totalmente containerizado para facilitar o deploy e execução.
+
+1.  **Pré-requisitos**: Docker e Docker Compose instalados.
+2.  **Configuração**:
+    Crie um arquivo `.env` na raiz (baseado no `.env.example`) com sua `RIOT_API_KEY`.
+    
+    ```env
+    POSTGRES_USER=admin
+    POSTGRES_PASSWORD=admin
+    POSTGRES_DB=ranking_lol
+    DATABASE_URL="postgresql://admin:admin@postgres:5432/ranking_lol?schema=public"
+    RIOT_API_KEY="RGAPI-..."
+    ```
+
+3.  **Executar**:
+    ```bash
+    docker-compose up --build -d
+    ```
+    Isso iniciará:
+    *   **PostgreSQL**: Banco de dados (Porta 5432)
+    *   **API**: Backend Fastify (Porta 3333)
+    *   **Jobs**: Scheduler para atualização automática (6h/Success ou 30m/Retry)
+    *   **Web**: Frontend Next.js (Porta 3000)
+
+4.  **Acessar**:
+    Abra `http://localhost:3000` no seu navegador.
+
+## ⚡ Forçar Atualização Manual
+
+Se você precisa atualizar os dados imediatamente (sem esperar o agendador):
+
+```bash
+docker-compose exec jobs npx ts-node src/cli/force-update.ts
+```
+Este comando irá conectar na container de jobs e rodar o ciclo de atualização instantaneamente.
+
+## 📋 Funcionalidades Principais
+
+-   **Ranking Anual**: Pontuação baseada em performance relativa (não apenas vitórias).
+-   **Insights**: Página dedicada com os destaques da semana (MVP, Rei do KDA, etc).
+-   **Fila Global**: Alterne entre Solo/Duo e Flex em toda a aplicação instantaneamente.
+-   **Perfil Detalhado**: Histórico de partidas, gráfico de evolução de PDL e maestrias.
+-   **Status do Sistema**: Visualização em tempo real da última e próxima atualização de dados.
+-   **Resiliência**: Sistema de agendamento inteligente que tenta reprocessar falhas automaticamente.
+
 ## 🛠 Tech Stack
 
--   **Linguagem**: Node.js / TypeScript
+-   **Frontend**: Next.js 14, TailwindCSS, Lucide Icons
+-   **Backend**: Node.js, Fastify, Prisma ORM
 -   **Banco de Dados**: PostgreSQL
--   **ORM**: Prisma
--   **API**: Riot Games API (Match-V5, Account-V1)
-
-## 🚀 Configuração
-
-1.  **Instale as dependências**:
-    ```bash
-    npm install
-    ```
-
-2.  **Configure o ambiente**:
-    Renomeie `.env.example` para `.env` e adicione suas credenciais:
-    ```env
-    DATABASE_URL="postgresql://user:pass@localhost:5432/ranking_lol"
-    RIOT_API_KEY="RGAPI-SEU-KEY-AQUI"
-    ```
-
-3.  **Habilite o Prisma** (se for conectar ao banco):
-    ```bash
-    npx prisma generate
-    ```
-
-## 🎮 Como Usar (CLI)
-
-O projeto inclui um script CLI para testar a lógica de pontuação sem precisar salvar no banco de dados. Ideal para auditar partidas.
-
-**Sintaxe**:
-```bash
-npx ts-node src/cli/test-score.ts <PUUID> <MATCH_ID>
-```
-
-**Exemplo de Saída**:
-```json
-{
-  "matchScore": 84,
-  "breakdown": {
-    "result": 25,
-    "performance": 37,
-    "objectives": 12,
-    "discipline": 10
-  },
-  "laneContext": { ... }
-}
-```
+-   **Infra**: Docker, Docker Compose
+-   **API**: Riot Games API (Match-V5, Account-V1, League-V4)
 
 ## ⚖️ Regras de Pontuação (Canonical 60-30-10)
 

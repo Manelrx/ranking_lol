@@ -168,13 +168,21 @@ export class RankingService {
             const end = snapshots[snapshots.length - 1];
 
             // Normalize LP (Simple tier approximation)
-            const getVal = (tier: string, lp: number) => {
-                const map: any = { IRON: 0, BRONZE: 400, SILVER: 800, GOLD: 1200, PLATINUM: 1600, EMERALD: 2000, DIAMOND: 2400, MASTER: 2800, GRANDMASTER: 2800, CHALLENGER: 2800 };
-                return (map[tier] || 0) + lp;
+            const getVal = (tier: string, rank: string, lp: number) => {
+                const tierMap: any = { IRON: 0, BRONZE: 400, SILVER: 800, GOLD: 1200, PLATINUM: 1600, EMERALD: 2000, DIAMOND: 2400, MASTER: 2800, GRANDMASTER: 2800, CHALLENGER: 2800 };
+                const rankMap: any = { 'IV': 0, 'III': 100, 'II': 200, 'I': 300 };
+                const tierVal = tierMap[tier] || 0;
+                const rankVal = rankMap[rank] || 0;
+                // Master+ ignores rank division usually (it's just LP), but API might still return 'I'.
+                // For simplicity, if Master+, just use Tier + LP (since LP can go > 400).
+                if (tierVal >= 2800) {
+                    return tierVal + lp;
+                }
+                return tierVal + rankVal + lp;
             };
 
-            const startVal = getVal(start.tier, start.lp);
-            const endVal = getVal(end.tier, end.lp);
+            const startVal = getVal(start.tier, start.rank, start.lp);
+            const endVal = getVal(end.tier, end.rank, end.lp);
             // If only 1 snapshot, start == end, so gain is 0. This is fine, at least they show up.
             const gain = endVal - startVal;
 
@@ -359,20 +367,41 @@ export class RankingService {
      * Get Weekly Highlights
      * Returns: Top KDA, Most Games, Best Support, Highest Dmg
      */
-    async getWeeklyHighlights(queueType: 'SOLO' | 'FLEX' = 'SOLO') {
+    /**
+     * Get Highlights (Weekly or Monthly)
+     * Returns: Top KDA, Most Games, Best Support, Highest Dmg, Survivor
+     */
+    async getHighlights(queueType: 'SOLO' | 'FLEX' = 'SOLO', period: 'WEEKLY' | 'MONTHLY' | 'GENERAL' = 'WEEKLY') {
         const now = new Date();
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
-        const monday = new Date(now.setDate(diff));
-        monday.setHours(0, 0, 0, 0);
+        now.setHours(23, 59, 59, 999);
 
-        // 1. Fetch all scores for this week
+        let startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+
+        let periodLabel = '';
+        let stomper: any = null;
+
+        if (period === 'WEEKLY') {
+            const day = now.getDay();
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+            startDate.setDate(diff);
+            periodLabel = `Semana de ${startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+        } else if (period === 'MONTHLY') {
+            startDate.setDate(1); // 1st of month
+            periodLabel = `Mês de ${startDate.toLocaleDateString('pt-BR', { month: 'long' })}`;
+        } else {
+            // General / Season
+            startDate = new Date('2026-01-01'); // Season Start
+            periodLabel = 'Geral (Temporada)';
+        }
+
+        // 1. Fetch all scores for this period
         const scores = await prisma.matchScore.findMany({
             where: {
                 queueType: queueType,
-                createdAt: { gte: monday }
-            } as any, // Cast to avoid TS issues with generated types if out of sync
-            include: { player: true }
+                createdAt: { gte: startDate }
+            } as any,
+            include: { player: true, match: true }
         });
 
         if (scores.length === 0) return null;
@@ -382,12 +411,17 @@ export class RankingService {
             player: any,
             games: number,
             wins: number,
-            totalScore: number, // For MVP
+            totalScore: number,
             kills: number,
             deaths: number,
             assists: number,
             totalDmg: number,
-            totalVision: number
+            totalVision: number,
+            totalGpm: number,
+            totalCspm: number,
+            totalObjectives: number, // New
+            champions: Record<number, { count: number, name: string }>, // New for Mono/Versatility
+            maxDmg: number // New for Highest Damage Record
         }> = {};
 
         scores.forEach((s: any) => {
@@ -396,7 +430,11 @@ export class RankingService {
                     player: s.player,
                     games: 0, wins: 0, totalScore: 0,
                     kills: 0, deaths: 0, assists: 0,
-                    totalDmg: 0, totalVision: 0
+                    totalDmg: 0, totalVision: 0,
+                    totalGpm: 0, totalCspm: 0,
+                    totalObjectives: 0,
+                    champions: {},
+                    maxDmg: 0
                 };
             }
             const p = playerStats[s.playerId];
@@ -407,19 +445,36 @@ export class RankingService {
             p.deaths += (s.deaths || 0);
             p.assists += (s.assists || 0);
 
-            // Extract JSON metrics safely
             const metrics = s.metrics as any;
-            p.totalDmg += (metrics?.totalDamageDealtToChampions || 0);
-            p.totalVision += (metrics?.visionScore || 0);
+
+            const durationMin = (s.match?.gameDuration || 0) / 60;
+            const dpm = metrics?.dpm || 0;
+            const dmg = dpm * durationMin;
+
+            p.totalDmg += dmg;
+            if (dmg > p.maxDmg) p.maxDmg = dmg; // Track Max Single Game Damage
+
+            p.totalVision += (metrics?.vspm || 0);
+            p.totalGpm += (metrics?.gpm || 0);
+            p.totalCspm += (metrics?.cspm || 0);
+            p.totalObjectives += (s.objectivesScore || 0);
+
+            // Track Champions
+            if (s.championId) {
+                if (!p.champions[s.championId]) {
+                    p.champions[s.championId] = { count: 0, name: s.championName || 'Unknown' };
+                }
+                p.champions[s.championId].count++;
+            }
         });
 
         const statsArray = Object.values(playerStats);
-        const minGames = 2; // Min valid for highlights
+        const minGames = period === 'MONTHLY' ? 5 : (period === 'GENERAL' ? 10 : 2); // Scales with period
         const validStats = statsArray.filter(s => s.games >= minGames);
 
         // 3. Calculate Highlights
 
-        // A) MVP (Highest Average Score)
+        // A) MVP
         const mvp = validStats.sort((a, b) => (b.totalScore / b.games) - (a.totalScore / a.games))[0];
 
         // B) KDA King
@@ -429,18 +484,22 @@ export class RankingService {
             return kdaB - kdaA;
         })[0];
 
-        // C) Most Active (Addicted)
+        // C) Most Active
         const mostActive = statsArray.sort((a, b) => b.games - a.games)[0];
 
-        // D) Highest Damage (Avg per game)
-        const highestDmg = validStats.sort((a, b) => (b.totalDmg / b.games) - (a.totalDmg / a.games))[0];
+        // D) Highest Damage (SINGLE MATCH RECORD)
+        const highestDmg = validStats.sort((a, b) => b.maxDmg - a.maxDmg)[0];
 
-        // E) LP Machine (Pdl Gain this week) -> Reuse logic logic but optimize
-        // calling getPdlGainRanking for this week
-        const pdlRanking = await this.getPdlGainRanking(queueType, 1, monday);
+        // E) Survivor
+        const survivor = validStats.sort((a, b) => (a.deaths / a.games) - (b.deaths / b.games))[0];
+
+        // F) Visionary
+        const visionary = validStats.sort((a, b) => (b.totalVision / b.games) - (a.totalVision / a.games))[0];
+
+        // G) LP Machine
+        const pdlRanking = await this.getPdlGainRanking(queueType, 1, startDate);
         const lpMachineData = pdlRanking.length > 0 ? pdlRanking[0] : null;
 
-        // Resolve LP Machine Player details
         let lpMachine = null;
         if (lpMachineData) {
             const p = await prisma.player.findUnique({ where: { puuid: lpMachineData.puuid } });
@@ -449,35 +508,127 @@ export class RankingService {
             }
         }
 
+        // H) Stomper
+        const fastestMatch = await prisma.matchScore.findFirst({
+            where: {
+                queueType: queueType,
+                createdAt: { gte: startDate },
+                isVictory: true
+            } as any,
+            orderBy: { match: { gameDuration: 'asc' } },
+            include: { player: true, match: true }
+        });
+
+        if (fastestMatch) {
+            const durationMin = Math.floor(fastestMatch.match.gameDuration / 60);
+            const durationSec = fastestMatch.match.gameDuration % 60;
+            stomper = { ...fastestMatch.player, value: `${durationMin}m ${durationSec}s`, label: 'Vitória Mais Rápida' };
+        }
+
+        // I) Best Score
+        const bestScoreMatch = await prisma.matchScore.findFirst({
+            where: { queueType: queueType, createdAt: { gte: startDate } } as any,
+            orderBy: { matchScore: 'desc' },
+            include: { player: true }
+        });
+        let highestScore = bestScoreMatch ? { ...bestScoreMatch.player, value: bestScoreMatch.matchScore, label: 'Maior Pontuação' } : null;
+
+        // J) Mono (One Trick)
+        let mono = null;
+        const monoCandidates = validStats.map(s => {
+            const sortedChamps = Object.values(s.champions).sort((a, b) => b.count - a.count);
+            const mainFn = sortedChamps[0];
+            return {
+                player: s.player,
+                topChamp: mainFn,
+                games: s.games,
+                percentage: mainFn ? (mainFn.count / s.games) : 0
+            };
+        }).filter(c => c.topChamp && c.games >= minGames);
+
+        // Sort by Count of games on top champion (Dedication)
+        const monoWinner = monoCandidates.sort((a, b) => b.topChamp.count - a.topChamp.count)[0];
+        if (monoWinner) {
+            mono = {
+                ...monoWinner.player,
+                value: monoWinner.topChamp.count,
+                label: 'Partidas (Mono)',
+                championName: monoWinner.topChamp.name
+            };
+        }
+
+        // K) Champion Ocean (Versatility)
+        let ocean = null;
+        const oceanWinner = validStats.sort((a, b) => Object.keys(b.champions).length - Object.keys(a.champions).length)[0];
+        if (oceanWinner) {
+            ocean = {
+                ...oceanWinner.player,
+                value: Object.keys(oceanWinner.champions).length,
+                label: 'Campeões Únicos'
+            };
+        }
+
+        // L) Objective Control
+        let objective = null;
+        const objWinner = validStats.sort((a, b) => (b.totalObjectives / b.games) - (a.totalObjectives / a.games))[0];
+        if (objWinner) {
+            objective = {
+                ...objWinner.player,
+                value: (objWinner.totalObjectives / objWinner.games).toFixed(0),
+                label: 'Pts Objetivos'
+            };
+        }
+
         return {
-            period: { start: monday.toISOString(), end: new Date().toISOString() },
-            periodLabel: `Semana de ${monday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
+            period: { start: startDate.toISOString(), end: now.toISOString() },
+            periodLabel,
 
-            mvp: mvp ? {
-                ...mvp.player,
-                value: (mvp.totalScore / mvp.games).toFixed(1),
-                label: 'Pontos/Jogo'
+            mvp: mvp ? { ...mvp.player, value: (mvp.totalScore / mvp.games).toFixed(1), label: 'Pontos/Jogo' } : null,
+            kdaKing: kdaKing ? { ...kdaKing.player, value: ((kdaKing.kills + kdaKing.assists) / (kdaKing.deaths || 1)).toFixed(2), label: 'KDA' } : null,
+            mostActive: mostActive ? { ...mostActive.player, value: mostActive.games, label: 'Partidas' } : null,
+            highestDmg: highestDmg ? { ...highestDmg.player, value: Number(highestDmg.maxDmg).toFixed(0), label: 'Dano (Recorde)' } : null,
+            survivor: survivor ? { ...survivor.player, value: (survivor.deaths / survivor.games).toFixed(1), label: 'Mortes/Jogo' } : null,
+            visionary: visionary ? { ...visionary.player, value: (visionary.totalVision / visionary.games).toFixed(1), label: 'Visão/Min' } : null,
+            rich: validStats.sort((a, b) => (b.totalGpm / b.games) - (a.totalGpm / a.games))[0] ? {
+                ...validStats.sort((a, b) => (b.totalGpm / b.games) - (a.totalGpm / a.games))[0].player,
+                value: (validStats.sort((a, b) => (b.totalGpm / b.games) - (a.totalGpm / a.games))[0].totalGpm / validStats.sort((a, b) => (b.totalGpm / b.games) - (a.totalGpm / a.games))[0].games).toFixed(0),
+                label: 'Ouro/Min'
             } : null,
-
-            kdaKing: kdaKing ? {
-                ...kdaKing.player,
-                value: ((kdaKing.kills + kdaKing.assists) / (kdaKing.deaths || 1)).toFixed(2),
-                label: 'KDA'
+            farmer: validStats.sort((a, b) => (b.totalCspm / b.games) - (a.totalCspm / a.games))[0] ? {
+                ...validStats.sort((a, b) => (b.totalCspm / b.games) - (a.totalCspm / a.games))[0].player,
+                value: (validStats.sort((a, b) => (b.totalCspm / b.games) - (a.totalCspm / a.games))[0].totalCspm / validStats.sort((a, b) => (b.totalCspm / b.games) - (a.totalCspm / a.games))[0].games).toFixed(1),
+                label: 'CS/Min'
             } : null,
+            stomper: stomper,
+            lpMachine: lpMachine ? { ...lpMachine } : null,
+            highestScore: highestScore,
 
-            mostActive: mostActive ? {
-                ...mostActive.player,
-                value: mostActive.games,
-                label: 'Partidas'
-            } : null,
+            // New
+            mono,
+            ocean,
+            objective
+        };
+    }
 
-            highestDmg: highestDmg ? {
-                ...highestDmg.player,
-                value: (highestDmg.totalDmg / highestDmg.games).toFixed(0),
-                label: 'Dano/Jogo'
-            } : null,
+    /**
+     * Get System Update Status
+     */
+    async getSystemStatus() {
+        const lastUpdateState = await prisma.systemState.findUnique({
+            where: { key: 'LAST_UPDATE' }
+        });
 
-            lpMachine: lpMachine // Already formatted
+        const lastUpdate = lastUpdateState?.value ? new Date(lastUpdateState.value) : null;
+        let nextUpdate = null;
+
+        if (lastUpdate) {
+            // Next update is 6 hours after last
+            nextUpdate = new Date(lastUpdate.getTime() + 6 * 60 * 60 * 1000);
+        }
+
+        return {
+            lastUpdate: lastUpdate?.toISOString() || null,
+            nextUpdate: nextUpdate?.toISOString() || null
         };
     }
 
