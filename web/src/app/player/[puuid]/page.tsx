@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { getPlayerHistory, getPlayerInsights, getPdlEvolution, PlayerHistory, PlayerInsights, MatchHistoryEntry, PdlEvolution } from "@/lib/api";
 import { PdlChart } from "@/components/PdlChart";
 import { MatchHistoryTable } from "@/components/MatchHistoryTable";
@@ -11,6 +11,7 @@ import { StatsGrid } from "@/components/StatsGrid";
 import { TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { useQueue } from "@/contexts/QueueContext";
+import { PlayerProfileSkeleton } from "@/components/PlayerProfileSkeleton";
 
 export default function PlayerProfile({ params }: { params: Promise<{ puuid: string }> }) {
     const { puuid } = use(params);
@@ -72,17 +73,10 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
 
     const handleQueueChange = (newQueue: 'SOLO' | 'FLEX') => {
         setQueueType(newQueue);
-        // Optional: Update URL for sharing purposes, but source of truth is Context
-        // router.push(`?queue=${newQueue.toLowerCase()}`, { scroll: false });
     };
 
     if (loading) {
-        return (
-            <div className="flex flex-col justify-center items-center h-[80vh]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
-                <p className="mt-4 text-emerald-500 font-bold tracking-widest text-xs uppercase animate-pulse">Carregando Perfil...</p>
-            </div>
-        );
+        return <PlayerProfileSkeleton />;
     }
 
     if (!history || !insights) {

@@ -15,35 +15,46 @@ interface RankEntry {
     gamesUsed: number;
 }
 
-async function main() {
-    // 1. Parse Args
+export async function runRankingSeason(options?: { queue?: string, limit?: number }) {
+    // 1. Parse Args (if not provided via options)
     const args = process.argv.slice(2);
 
-    // --queue=SOLO | FLEX (Default SOLO)
-    let queueArg = 'SOLO';
-    const queueFlag = args.find(a => a.startsWith('--queue='));
-    if (queueFlag) {
-        const parts = queueFlag.split('=');
-        if (parts.length >= 2) {
-            const val = parts[1];
-            if (val) queueArg = val.toUpperCase();
+    let queueArg = options?.queue;
+    if (!queueArg) {
+        // --queue=SOLO | FLEX (Default SOLO)
+        queueArg = 'SOLO';
+        const queueFlag = args.find(a => a.startsWith('--queue='));
+        if (queueFlag) {
+            const parts = queueFlag.split('=');
+            if (parts.length >= 2) {
+                const val = parts[1];
+                if (val) queueArg = val.toUpperCase();
+            }
         }
     }
+
     if (!['SOLO', 'FLEX'].includes(queueArg)) {
         console.error('Invalid queue. Use --queue=SOLO or --queue=FLEX');
-        process.exit(1);
+        // If running as module, maybe throw error instead of exit? 
+        // But to preserve behavior let's exit if it was CLI, but here we might be in scheduler.
+        // Let's just return to avoid killing scheduler.
+        console.error('Aborting ranking calculation.');
+        return;
     }
 
-    // --limit=N (Default 100)
-    let limitArg = 100;
-    const limitFlag = args.find(a => a.startsWith('--limit='));
-    if (limitFlag) {
-        const parts = limitFlag.split('=');
-        if (parts.length >= 2) {
-            const val = parts[1];
-            if (val) {
-                limitArg = parseInt(val, 10);
-                if (isNaN(limitArg) || limitArg <= 0) limitArg = 100;
+    let limitArg = options?.limit;
+    if (!limitArg) {
+        // --limit=N (Default 100)
+        limitArg = 100;
+        const limitFlag = args.find(a => a.startsWith('--limit='));
+        if (limitFlag) {
+            const parts = limitFlag.split('=');
+            if (parts.length >= 2) {
+                const val = parts[1];
+                if (val) {
+                    limitArg = parseInt(val, 10);
+                    if (isNaN(limitArg) || limitArg <= 0) limitArg = 100;
+                }
             }
         }
     }
@@ -152,4 +163,6 @@ async function main() {
     }
 }
 
-main();
+if (require.main === module) {
+    runRankingSeason();
+}

@@ -1,7 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { RankingService } from '../services/ranking.service';
+import { PrismaClient } from '@prisma/client';
+import { RiotService } from '../services/riot.service';
 
 const rankingService = new RankingService();
+const prisma = new PrismaClient();
+const riotService = new RiotService(process.env.RIOT_API_KEY || '');
 
 export async function rankingRoutes(fastify: FastifyInstance) {
 
@@ -145,6 +149,82 @@ export async function rankingRoutes(fastify: FastifyInstance) {
             return data;
         } catch (error) {
             console.error('[API] /status - ERROR:', error);
+            reply.status(500).send({ error: 'Internal Server Error' });
+        }
+    });
+
+    // 8. Player Management (Admin)
+    interface AddPlayerBody { gameName: string; tagLine: string; }
+    fastify.post<{ Body: AddPlayerBody }>('/api/players', async (request, reply) => {
+        const adminPwd = process.env.ADMIN_PASSWORD;
+        const providedPwd = request.headers['x-admin-password'];
+
+        if (!adminPwd || providedPwd !== adminPwd) {
+            return reply.status(401).send({ error: 'Unauthorized' });
+        }
+
+        const { gameName, tagLine } = request.body;
+        if (!gameName || !tagLine) {
+            return reply.status(400).send({ error: 'Missing gameName or tagLine' });
+        }
+
+        try {
+            // 1. Resolve Account
+            const account = await riotService.getAccountByRiotId(gameName, tagLine);
+
+            // 2. Create/Update Player
+            const player = await prisma.player.upsert({
+                where: { puuid: account.puuid },
+                update: {
+                    gameName: account.gameName,
+                    tagLine: account.tagLine,
+                    isActive: true,
+                    updatedAt: new Date()
+                },
+                create: {
+                    puuid: account.puuid,
+                    gameName: account.gameName,
+                    tagLine: account.tagLine,
+                    displayName: `${account.gameName} #${account.tagLine}`,
+                    isActive: true
+                }
+            });
+
+            console.log(`[API] Added player: ${player.gameName} #${player.tagLine}`);
+            return { message: 'Player added/activated', player };
+
+        } catch (error: any) {
+            console.error('[API] Add Player Error:', error);
+            if (error.response?.status === 404) {
+                return reply.status(404).send({ error: 'Riot ID not found' });
+            }
+            reply.status(500).send({ error: 'Internal Server Error' });
+        }
+    });
+
+    // 9. Insights (Hall of Fame & Shame)
+    interface InsightsQueryShort { queue?: string; period?: string; }
+
+    fastify.get<{ Querystring: InsightsQueryShort }>('/api/insights/fame', async (request, reply) => {
+        const { queue = 'SOLO', period = 'GENERAL' } = request.query;
+        const q = queue === 'FLEX' ? 'FLEX' : 'SOLO';
+        const p = (period === 'WEEKLY' || period === 'MONTHLY' || period === 'GENERAL') ? period : 'GENERAL';
+        try {
+            return await rankingService.getHallOfFame(q, p);
+        } catch (error) {
+            console.error(error);
+            reply.status(500).send({ error: 'Internal Server Error' });
+        }
+    });
+
+    fastify.get<{ Querystring: InsightsQueryShort }>('/api/insights/shame', async (request, reply) => {
+        const { queue = 'SOLO', period = 'GENERAL' } = request.query;
+        const q = queue === 'FLEX' ? 'FLEX' : 'SOLO';
+        const p = (period === 'WEEKLY' || period === 'MONTHLY' || period === 'GENERAL') ? period : 'GENERAL';
+        try {
+            return await rankingService.getHallOfShame(q, p);
+        } catch (error) {
+            console.error(error);
             reply.status(500).send({ error: 'Internal Server Error' });
         }
     });

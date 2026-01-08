@@ -20,6 +20,14 @@ import { Suspense } from "react";
 
 import { QueueProvider } from "@/contexts/QueueContext";
 
+export const metadata: Metadata = {
+  title: "Ranking dos Crias",
+  description: "Acompanhe o ranking da galera no League of Legends",
+  icons: {
+    icon: '/icon.png',
+  },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

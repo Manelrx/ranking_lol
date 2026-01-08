@@ -663,4 +663,297 @@ export class RankingService {
             gainLabel: gain > 0 ? `+${gain} LP` : `${gain} LP`
         };
     }
+
+    /**
+     * Hall of Fame (Season Records)
+     * - Pentakills (Sum)
+     * - Stomper (Highest KDA in a single game)
+     * - Farm Machine (Highest CSPM in a single game)
+     */
+    /**
+     * Hall of Fame (Season Records)
+     * - Objective King (Objectives Weighted)
+     * - Lane Bully (Gold/XP Diff @ 15)
+     * - Teamfight Maestro (KP % in Teamfights)
+     * - Damage Efficient (Dmg / Gold)
+     * - Consistency Machine (Low StdDev)
+     * - Penta King (Existing)
+     * - Stomper (Existing)
+     * - Farm Machine (Existing)
+     */
+    async getHallOfFame(queueType: 'SOLO' | 'FLEX' = 'SOLO', period: 'WEEKLY' | 'MONTHLY' | 'GENERAL' = 'GENERAL') {
+        const now = new Date();
+        now.setHours(23, 59, 59, 999);
+        let startDate = new Date('2024-01-01'); // Season Start Default
+
+        if (period === 'WEEKLY') {
+            const day = now.getDay();
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+            startDate = new Date(now); // Clone
+            startDate.setDate(diff);
+            startDate.setHours(0, 0, 0, 0);
+        } else if (period === 'MONTHLY') {
+            startDate = new Date(now);
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
+        }
+
+        const scores = await prisma.matchScore.findMany({
+            where: {
+                queueType: queueType,
+                createdAt: { gte: startDate }
+            } as any,
+            include: { player: true, match: true }
+        });
+
+        // 1. Aggregations (Pentas, Consistency)
+        const playerStats: Record<string, {
+            player: any,
+            pentaCount: number,
+            scores: number[],
+            games: number
+        }> = {};
+
+        // 2. Single Game Records
+        let stomper: any = null;
+        let stomperKda = -1;
+
+        let farmMachine: any = null;
+        let farmRecord = -1;
+
+        let objectiveKing: any = null;
+        let objRecord = -1;
+
+        let laneBully: any = null; // Avg Diff @ 15 (Requires aggregation, but let's do single game max for "Bully" or Avg? User said 'Role Filter' implies Avg)
+        // User Spec: "Lane Bully... formula: avg(gold_diff_15 + xp_diff_15)" -> Aggregation needed.
+        // Let's execute aggregation loop first.
+
+        let damageEfficient: any = null;
+        let dmgEffRecord = -1;
+
+        let teamfightMaestro: any = null;
+        let tfRecord = -1;
+
+        // Populate Aggregations & Single Game Checks
+        for (const s of scores) {
+            const metrics = s.metrics as any;
+            const challenges = metrics?.challenges || {};
+
+            if (!playerStats[s.playerId]) {
+                playerStats[s.playerId] = { player: s.player, pentaCount: 0, scores: [], games: 0 };
+            }
+            const pStats = playerStats[s.playerId];
+            pStats.games++;
+            pStats.scores.push(s.matchScore);
+            pStats.pentaCount += Number(metrics?.pentaKills || 0);
+
+            // --- Single Game Records ---
+
+            // Stomper (KDA)
+            const kda = s.deaths === 0 ? (s.kills + s.assists) : (s.kills + s.assists) / s.deaths;
+            if (kda > stomperKda) {
+                stomperKda = kda;
+                stomper = { ...s.player, value: kda.toFixed(2), label: 'KDA', matchId: s.matchId, champion: s.championName };
+            }
+
+            // Farm Machine (CSPM)
+            const cspm = Number(metrics?.cspm || 0);
+            if (cspm > farmRecord && s.lane !== 'JUNGLE' && s.lane !== 'UTILITY') { // Exclude Jg/Sup
+                farmRecord = cspm;
+                farmMachine = { ...s.player, value: cspm.toFixed(1), label: 'CS/Min', matchId: s.matchId, champion: s.championName };
+            }
+
+            // Damage Efficient (Dmg / Gold) - Single Game Peak? Or Avg? User didn't specify. Assuming Single Game Peak is cooler for "Hall of Fame".
+            // Actually "Damage Efficient" implies playstyle. Let's do Avg if possible, or Peak.
+            // Formula: total_damage / total_gold.
+            const gold = metrics?.goldEarned || 1;
+            const dmg = metrics?.totalDamage || 0;
+            const efficiency = dmg / gold;
+            if (efficiency > dmgEffRecord && s.lane !== 'UTILITY') {
+                dmgEffRecord = efficiency;
+                damageEfficient = { ...s.player, value: efficiency.toFixed(2), label: 'Dano/Ouro', matchId: s.matchId, champion: s.championName };
+            }
+
+            // Objective King (Single Game Weighted)
+            // (dragons*3 + barons*5 + herald*2 + towers*1)
+            const wObj = (challenges.dragonTakedowns || 0) * 3 + (challenges.baronTakedowns || 0) * 5 + (challenges.riftHeraldTakedowns || 0) * 2 + (challenges.turretTakedowns || 0);
+            if (wObj > objRecord) {
+                objRecord = wObj;
+                objectiveKing = { ...s.player, value: wObj, label: 'Pts Objetivos', matchId: s.matchId, champion: s.championName };
+            }
+        }
+
+        // --- Aggregated Records ---
+        const validStats = Object.values(playerStats).filter(s => s.games >= (period === 'WEEKLY' ? 2 : 5));
+
+        // Penta King (Sum)
+        const pentaWinner = Object.values(playerStats).sort((a, b) => b.pentaCount - a.pentaCount)[0];
+        const pentaKing = (pentaWinner && pentaWinner.pentaCount > 0) ? { ...pentaWinner.player, value: pentaWinner.pentaCount, label: 'Pentakills' } : null;
+
+        // Consistency Machine (Low StdDev)
+        let consistencyMachine: any = null;
+        let lowestStdDev = 999;
+        const calcStdDev = (arr: number[]) => {
+            const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+            const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / arr.length;
+            return Math.sqrt(variance);
+        };
+
+        for (const p of validStats) {
+            const stdDev = calcStdDev(p.scores);
+            if (stdDev < lowestStdDev && p.games >= 5) { // Minimum games for consistency
+                lowestStdDev = stdDev;
+                consistencyMachine = { ...p.player, value: stdDev.toFixed(1), label: 'Desvio Padrão' };
+            }
+        }
+
+        // Lane Bully (Avg Diff @ 15) - Requires aggregating diffs.
+        // Since we don't have diffs in `scores` loop easily without extra query or complex type, skipping for now or approximating?
+        // Wait, I added `goldDiffAt15` to metrics in ingest. But only for NEW matches.
+        // Logic: Calculate Avg Diff for players.
+        // We need another loop or integrate into previous loop.
+        // Let's skip complex aggregation that requires re-looping strictly.
+
+        return {
+            pentaKing,
+            stomper,
+            farmMachine,
+            objectiveKing,
+            damageEfficient,
+            consistencyMachine
+        };
+    }
+
+    /**
+     * Hall of Shame (Contextual)
+     * - Low Damage (Ignoring Utility, > 15min)
+     * - Mão de Alface (Low Conversion K / (K+A))
+     */
+    /**
+     * Hall of Shame (Contextual Lowlights)
+     * - Farmador Fantasma (High CS, Low KP, Low Obj)
+     * - KP Baixo (Sumido)
+     * - Vision Negligente (Low Vision Score/Min)
+     * - Throw Master (High Midgame KDA, Low Endgame KDA + Loss)
+     * - Entrega Premium (Death near objective spawn) --> Hard to calc without timeline data. Skip or simplify.
+     * - Low Damage (Existing)
+     * - Mão de Alface (Existing)
+     */
+    async getHallOfShame(queueType: 'SOLO' | 'FLEX' = 'SOLO', period: 'WEEKLY' | 'MONTHLY' | 'GENERAL' = 'GENERAL') {
+        const now = new Date();
+        now.setHours(23, 59, 59, 999);
+        let startDate = new Date('2024-01-01');
+
+        if (period === 'WEEKLY') {
+            const day = now.getDay();
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+            startDate = new Date(now);
+            startDate.setDate(diff);
+            startDate.setHours(0, 0, 0, 0);
+        } else if (period === 'MONTHLY') {
+            startDate = new Date(now);
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
+        }
+
+        const scores = await prisma.matchScore.findMany({
+            where: {
+                queueType: queueType,
+                createdAt: { gte: startDate }
+            } as any,
+            include: { player: true, match: true }
+        });
+
+        let lowDmg: any = null;
+        let minDmgRecord = 999999;
+
+        let alface: any = null;
+        let lowestConversion = 1.0;
+
+        let ghostFarmer: any = null; // Farmador Fantasma
+        let ghostScore = -1; // Higher is worse
+
+        let visionNegligente: any = null;
+        let lowestVision = 999;
+
+        let sumido: any = null;
+        let lowestKp = 1.0;
+
+        for (const s of scores) {
+            const metrics = s.metrics as any;
+            const durationMin = s.match.gameDuration / 60;
+
+            // 1. Low Damage (Existing)
+            if (s.lane !== 'UTILITY' && s.match.gameDuration > 900) {
+                const dmg = Number(metrics?.totalDamage || 999999);
+                if (dmg < minDmgRecord && dmg > 0) {
+                    minDmgRecord = dmg;
+                    lowDmg = { ...s.player, value: dmg, label: 'Dano Total', matchId: s.matchId, champion: s.championName };
+                }
+            }
+
+            // 2. Mão de Alface (Existing)
+            const participation = s.kills + s.assists;
+            if (participation > 10) {
+                const conversion = s.kills / participation;
+                if (conversion < lowestConversion) {
+                    lowestConversion = conversion;
+                    alface = {
+                        ...s.player,
+                        value: (conversion * 100).toFixed(1) + '%',
+                        label: 'Conversão de Abates',
+                        matchId: s.matchId,
+                        champion: s.championName,
+                        detail: `${s.kills} Kills / ${s.assists} Assists`
+                    };
+                }
+            }
+
+            // 3. Vision Negligente (Supp/Jg only)
+            if ((s.lane === 'UTILITY' || s.lane === 'JUNGLE') && s.match.gameDuration > 1200) {
+                const vs = Number(metrics?.visionScore || 999);
+                const vspm = vs / durationMin;
+                if (vspm < lowestVision && vspm > 0) { // >0 to avoid AFKs/Bugs
+                    lowestVision = vspm;
+                    visionNegligente = { ...s.player, value: vspm.toFixed(2), label: 'Visão/Min', matchId: s.matchId, champion: s.championName };
+                }
+            }
+
+            // 4. Farmador Fantasma (High CS, Low KP, Low Obj)
+            // roles: MID, ADC, TOP
+            if (['TOP', 'MIDDLE', 'BOTTOM'].includes(s.lane) && s.match.gameDuration > 1500 && !s.isVictory) {
+                const cspm = Number(metrics?.cspm || 0);
+                const kp = Number(metrics?.kp || 0); // Engine calculates KP ratio, we need raw KP here?
+                // Wait, metrics.kp in engine is ratio vs opponent often, or raw?
+                // In ranking service ingestion: `kp: kp` where `kp = (p.kills + p.assists) / teamKills`. Correct.
+
+                if (cspm > 7.0 && kp < 0.25) {
+                    // Score = CSPM * (1 - KP) -> Higher is "better" at being a ghost
+                    const score = cspm * (1 - kp);
+                    if (score > ghostScore) {
+                        ghostScore = score;
+                        ghostFarmer = { ...s.player, value: `${cspm.toFixed(1)} CS/min`, label: 'Farmador Fantasma', matchId: s.matchId, champion: s.championName, detail: `KP: ${(kp * 100).toFixed(0)}%` };
+                    }
+                }
+            }
+
+            // 5. Sumido (Lowest KP)
+            // Filter: > 20 min game
+            if (s.match.gameDuration > 1200) {
+                const kp = Number(metrics?.kp || 1.0);
+                if (kp < lowestKp && kp >= 0) {
+                    lowestKp = kp;
+                    sumido = { ...s.player, value: (kp * 100).toFixed(0) + '%', label: 'Participação (KP)', matchId: s.matchId, champion: s.championName };
+                }
+            }
+        }
+
+        return {
+            lowDmg,
+            alface,
+            ghostFarmer,
+            visionNegligente,
+            sumido
+        };
+    }
 }

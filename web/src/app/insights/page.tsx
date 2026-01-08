@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getHighlights, PeriodHighlights } from "@/lib/api";
+import { getHighlights, PeriodHighlights, getHallOfFame, getHallOfShame, HallOfFameData, HallOfShameData } from "@/lib/api";
 import { PlayerAvatar } from "@/components/ui/PlayerAvatar";
 import { Card } from "@/components/ui/Card";
-import { Trophy, Skull, Flame, TrendingUp, Swords, Calendar, Eye, Timer, Target, Layers, User } from "lucide-react";
+import { Trophy, Skull, Flame, TrendingUp, Swords, Calendar, Eye, Timer, Target, Layers, User, Crown, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { useQueue } from "@/contexts/QueueContext";
 
 export default function InsightsPage() {
     const [data, setData] = useState<PeriodHighlights | null>(null);
+    const [fame, setFame] = useState<HallOfFameData | null>(null);
+    const [shame, setShame] = useState<HallOfShameData | null>(null);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState<'WEEKLY' | 'MONTHLY' | 'GENERAL'>('GENERAL');
     const { queueType } = useQueue();
@@ -19,8 +21,14 @@ export default function InsightsPage() {
         async function load() {
             setLoading(true);
             try {
-                const res = await getHighlights(queueType, period);
+                const [res, fameRes, shameRes] = await Promise.all([
+                    getHighlights(queueType, period),
+                    getHallOfFame(queueType, period),
+                    getHallOfShame(queueType, period)
+                ]);
                 setData(res);
+                setFame(fameRes);
+                setShame(shameRes);
             } catch (error) {
                 console.error("Failed to load insights", error);
             } finally {
@@ -65,204 +73,169 @@ export default function InsightsPage() {
 
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="bg-black/40 p-1 rounded-lg flex items-center border border-white/5 h-fit">
-                        <button
-                            onClick={() => setPeriod('GENERAL')}
-                            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${period === 'GENERAL' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Geral
-                        </button>
-                        <button
-                            onClick={() => setPeriod('MONTHLY')}
-                            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${period === 'MONTHLY' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Mensal
-                        </button>
-                        <button
-                            onClick={() => setPeriod('WEEKLY')}
-                            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${period === 'WEEKLY' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Semanal
-                        </button>
+                        {(['GENERAL', 'MONTHLY', 'WEEKLY'] as const).map(p => (
+                            <button
+                                key={p}
+                                onClick={() => setPeriod(p)}
+                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${period === p ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                {p === 'GENERAL' ? 'Geral' : p === 'MONTHLY' ? 'Mensal' : 'Semanal'}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
 
-            {/* Top Section: Side By Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* MVP Section - Hero Card */}
-                {data.mvp ? (
-                    <Card className="relative overflow-hidden border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-transparent p-6 md:p-8 flex flex-col justify-between h-full min-h-[280px]">
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-500/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
-
-                        <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left h-full">
-                            <div className="relative shrink-0">
-                                <PlayerAvatar
-                                    profileIconId={data.mvp.profileIconId}
-                                    size="xl"
-                                    ringColor="border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.4)]"
-                                />
-                                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg whitespace-nowrap">
-                                    MVP da Season
-                                </div>
-                            </div>
-
-                            <div className="flex-1 space-y-2">
-                                <h3 className="text-3xl md:text-3xl font-black text-white line-clamp-1">{data.mvp.gameName}</h3>
-                                <p className="text-yellow-500 font-medium">Melhor Performance Geral</p>
-                                <div className="inline-flex items-center gap-2 bg-yellow-500/20 px-4 py-2 rounded-lg border border-yellow-500/30">
-                                    <span className="text-2xl font-bold text-yellow-100">{data.mvp.value}</span>
-                                    <span className="text-sm font-bold text-yellow-500 uppercase">{data.mvp.label}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-                ) : (
-                    <div className="col-span-1 border border-white/5 rounded-xl bg-white/5 animate-pulse min-h-[280px]" />
-                )}
-
-                {/* Highest Score */}
-                {data.highestScore ? (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 h-full">
-                        <Card className="relative overflow-hidden border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-transparent p-6 flex flex-col items-center justify-center text-center h-full min-h-[280px]">
-                            <h3 className="text-sm font-bold text-purple-400 uppercase tracking-wider mb-6">✨ Maior Pontuação Única</h3>
-                            <div className="relative mb-6">
-                                <PlayerAvatar
-                                    profileIconId={data.highestScore.profileIconId}
-                                    size="lg"
-                                    ringColor="border-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.4)]"
-                                />
-                            </div>
-                            <h2 className="text-2xl font-bold text-white mb-1 line-clamp-1">{data.highestScore.gameName}</h2>
-                            <div className="text-5xl font-black text-purple-200 mb-2">{data.highestScore.value}</div>
-                            <p className="text-xs text-gray-500">Pontos em uma única partida</p>
-                        </Card>
-                    </div>
-                ) : (
-                    <div className="col-span-1 border border-white/5 rounded-xl bg-white/5 animate-pulse min-h-[280px]" />
-                )}
+            {/* Tabs Navigation */}
+            <div className="flex gap-4 border-b border-white/10 pb-1 overflow-x-auto">
+                {/* Requires custom state or reuse Radix Tabs if available. 
+                     Since I can't easily see if "Tabs" component is Radix or custom, 
+                     I will use a simple state-based Tab system here for safety and speed 
+                     unless user insists on Radix. 
+                     Wait, I checked Tabs.tsx - it exports Tabs, TabsList, etc. 
+                     Let's Assume standard API. 
+                  */}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Custom Tab Implementation for maximum control/compatibility if component usage is tricky without verification */}
+            <TabSystem
+                data={data}
+                fame={fame}
+                shame={shame}
+            />
+        </div>
+    );
+}
 
-                {data.mono && (
-                    <HighlightCard
-                        title="Mono Champion"
-                        icon={<User className="w-6 h-6 text-pink-400" />}
-                        player={data.mono}
-                        color="border-pink-500/50 bg-pink-500/5"
-                        delay={0.05}
-                        extraInfo={data.mono.championName}
-                    />
+// Sub-component to manage Tabs state cleanly
+function TabSystem({ data, fame, shame }: { data: PeriodHighlights, fame: HallOfFameData | null, shame: HallOfShameData | null }) {
+    const [activeTab, setActiveTab] = useState<'highlights' | 'fame' | 'shame'>('highlights');
+
+    return (
+        <div className="space-y-6">
+            <div className="flex gap-2">
+                <button
+                    onClick={() => setActiveTab('highlights')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'highlights' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                >
+                    Destaques
+                </button>
+                <button
+                    onClick={() => setActiveTab('fame')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'fame' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' : 'text-gray-400 hover:text-yellow-500'}`}
+                >
+                    Hall of Fame
+                </button>
+                <button
+                    onClick={() => setActiveTab('shame')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'shame' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'text-gray-400 hover:text-red-500'}`}
+                >
+                    Hall of Shame
+                </button>
+            </div>
+
+            <div className="min-h-[400px]">
+                {activeTab === 'highlights' && (
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="space-y-6"
+                    >
+                        {/* Top Section: Side By Side */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* MVP Section */}
+                            {data.mvp ? (
+                                <Card className="relative overflow-hidden border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-transparent p-6 md:p-8 flex flex-col justify-between h-full min-h-[280px]">
+                                    <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-500/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
+                                    <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left h-full">
+                                        <div className="relative shrink-0">
+                                            <PlayerAvatar
+                                                profileIconId={data.mvp.profileIconId}
+                                                size="xl"
+                                                ringColor="border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.4)]"
+                                                tier={data.mvp.tier}
+                                            />
+                                            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg whitespace-nowrap">
+                                                MVP
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                            <h3 className="text-3xl md:text-3xl font-black text-white line-clamp-1">{data.mvp.gameName}</h3>
+                                            <p className="text-yellow-500 font-medium">{data.mvp.label}</p>
+                                            <div className="inline-flex items-center gap-2 bg-yellow-500/20 px-4 py-2 rounded-lg border border-yellow-500/30">
+                                                <span className="text-2xl font-bold text-yellow-100">{data.mvp.value}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+                            ) : null}
+
+                            {/* Highest Score */}
+                            {data.highestScore ? (
+                                <Card className="relative overflow-hidden border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-transparent p-6 flex flex-col items-center justify-center text-center h-full min-h-[280px]">
+                                    <h3 className="text-sm font-bold text-purple-400 uppercase tracking-wider mb-6">✨ Maior Pontuação Única</h3>
+                                    <div className="relative mb-6">
+                                        <PlayerAvatar
+                                            profileIconId={data.highestScore.profileIconId}
+                                            size="lg"
+                                            ringColor="border-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.4)]"
+                                            tier={data.highestScore.tier}
+                                        />
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-white mb-1 line-clamp-1">{data.highestScore.gameName}</h2>
+                                    <div className="text-5xl font-black text-purple-200 mb-2">{data.highestScore.value}</div>
+                                </Card>
+                            ) : null}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {data.mono && <HighlightCard title="Mono Champion" icon={<User className="w-6 h-6 text-pink-400" />} player={data.mono} color="border-pink-500/50 bg-pink-500/5" delay={0.05} extraInfo={data.mono.championName} />}
+                            {data.objective && <HighlightCard title="Controlador" icon={<Target className="w-6 h-6 text-teal-400" />} player={data.objective} color="border-teal-500/50 bg-teal-500/5" delay={0.08} />}
+                            {data.ocean && <HighlightCard title="Versátil" icon={<Layers className="w-6 h-6 text-cyan-400" />} player={data.ocean} color="border-cyan-500/50 bg-cyan-500/5" delay={0.09} />}
+                            {data.kdaKing && <HighlightCard title="Rei do KDA" icon={<Swords className="w-6 h-6 text-blue-400" />} player={data.kdaKing} color="border-blue-500/50 bg-blue-500/5" delay={0.1} />}
+                            {data.lpMachine && <HighlightCard title="Máquina de PDL" icon={<TrendingUp className="w-6 h-6 text-emerald-400" />} player={data.lpMachine} color="border-emerald-500/50 bg-emerald-500/5" delay={0.2} />}
+                            {data.highestDmg && <HighlightCard title="Dano Máximo" icon={<Flame className="w-6 h-6 text-orange-500" />} player={data.highestDmg} color="border-orange-500/50 bg-orange-500/5" delay={0.3} />}
+                            {data.visionary && <HighlightCard title="Olhos de Águia" icon={<Eye className="w-6 h-6 text-indigo-400" />} player={data.visionary} color="border-indigo-500/50 bg-indigo-500/5" delay={0.35} />}
+                            {data.rich && <HighlightCard title="Magnata" icon={<Trophy className="w-6 h-6 text-yellow-300" />} player={data.rich} color="border-yellow-300/50 bg-yellow-300/5" delay={0.36} />}
+                            {data.farmer && <HighlightCard title="Agricultor" icon={<Swords className="w-6 h-6 text-emerald-300" />} player={data.farmer} color="border-emerald-300/50 bg-emerald-300/5" delay={0.37} />}
+                            {data.stomper && <HighlightCard title="Speedrun" icon={<Timer className="w-6 h-6 text-yellow-400" />} player={data.stomper} color="border-yellow-500/50 bg-yellow-500/5" delay={0.4} />}
+                            {data.mostActive && <HighlightCard title="Viciado" icon={<Calendar className="w-6 h-6 text-purple-400" />} player={data.mostActive} color="border-purple-500/50 bg-purple-500/5" delay={0.45} />}
+                            {data.survivor && <HighlightCard title="Sobrevivente" icon={<Skull className="w-6 h-6 text-gray-400" />} player={data.survivor} color="border-gray-500/50 bg-gray-500/5" delay={0.5} />}
+                        </div>
+                    </motion.div>
                 )}
 
-                {data.objective && (
-                    <HighlightCard
-                        title="Controlador"
-                        icon={<Target className="w-6 h-6 text-teal-400" />}
-                        player={data.objective}
-                        color="border-teal-500/50 bg-teal-500/5"
-                        delay={0.08}
-                    />
+                {activeTab === 'fame' && fame && (
+                    <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    >
+                        {fame.pentaKing && <HighlightCard title="Rei do Pentakill" icon={<Swords className="w-5 h-5 text-yellow-500" />} player={fame.pentaKing} color="border-yellow-500/20 bg-yellow-500/5" delay={0} extraInfo={`${fame.pentaKing.value} Pentas`} />}
+                        {fame.stomper && <HighlightCard title="Stomper (Maior KDA)" icon={<Swords className="w-5 h-5 text-blue-400" />} player={fame.stomper} color="border-blue-500/20 bg-blue-500/5" delay={0.1} extraInfo={fame.stomper?.championName} />}
+                        {fame.farmMachine && <HighlightCard title="Farm Machine (CS/Min)" icon={<Target className="w-5 h-5 text-emerald-400" />} player={fame.farmMachine} color="border-emerald-500/20 bg-emerald-500/5" delay={0.2} extraInfo={fame.farmMachine?.championName} />}
+
+                        {/* New FAME Insights */}
+                        {fame.objectiveKing && <HighlightCard title="Rei dos Objetivos" icon={<Target className="w-5 h-5 text-orange-400" />} player={fame.objectiveKing} color="border-orange-500/20 bg-orange-500/5" delay={0.3} />}
+                        {fame.damageEfficient && <HighlightCard title="Dano Eficiente" icon={<Flame className="w-5 h-5 text-red-400" />} player={fame.damageEfficient} color="border-red-500/20 bg-red-500/5" delay={0.4} extraInfo={fame.damageEfficient?.championName} />}
+                        {fame.consistencyMachine && <HighlightCard title="A Máquina" icon={<Layers className="w-5 h-5 text-indigo-400" />} player={fame.consistencyMachine} color="border-indigo-500/20 bg-indigo-500/5" delay={0.5} />}
+                    </motion.div>
                 )}
 
-                {data.ocean && (
-                    <HighlightCard
-                        title="Versátil"
-                        icon={<Layers className="w-6 h-6 text-cyan-400" />}
-                        player={data.ocean}
-                        color="border-cyan-500/50 bg-cyan-500/5"
-                        delay={0.09}
-                    />
-                )}
+                {activeTab === 'shame' && shame && (
+                    <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    >
+                        {shame.lowDmg && <HighlightCard title="Dano Inexistente" icon={<Skull className="w-5 h-5 text-gray-400" />} player={shame.lowDmg} color="border-gray-500/20 bg-gray-500/5" delay={0} extraInfo={shame.lowDmg?.championName} />}
+                        {shame.alface && <HighlightCard title="Mão de Alface" icon={<AlertTriangle className="w-5 h-5 text-green-400" />} player={shame.alface} color="border-green-500/20 bg-green-500/5" delay={0.1} extraInfo={shame.alface?.detail} />}
 
-                {data.kdaKing && (
-                    <HighlightCard
-                        title="Rei do KDA"
-                        icon={<Swords className="w-6 h-6 text-blue-400" />}
-                        player={data.kdaKing}
-                        color="border-blue-500/50 bg-blue-500/5"
-                        delay={0.1}
-                    />
-                )}
-
-                {data.lpMachine && (
-                    <HighlightCard
-                        title="Máquina de PDL"
-                        icon={<TrendingUp className="w-6 h-6 text-emerald-400" />}
-                        player={data.lpMachine}
-                        color="border-emerald-500/50 bg-emerald-500/5"
-                        delay={0.2}
-                    />
-                )}
-
-                {data.highestDmg && (
-                    <HighlightCard
-                        title="Dano Máximo"
-                        icon={<Flame className="w-6 h-6 text-orange-500" />}
-                        player={data.highestDmg}
-                        color="border-orange-500/50 bg-orange-500/5"
-                        delay={0.3}
-                    />
-                )}
-
-                {data.visionary && (
-                    <HighlightCard
-                        title="Olhos de Águia"
-                        icon={<Eye className="w-6 h-6 text-indigo-400" />}
-                        player={data.visionary}
-                        color="border-indigo-500/50 bg-indigo-500/5"
-                        delay={0.35}
-                    />
-                )}
-
-                {data.rich && (
-                    <HighlightCard
-                        title="Magnata"
-                        icon={<Trophy className="w-6 h-6 text-yellow-300" />}
-                        player={data.rich}
-                        color="border-yellow-300/50 bg-yellow-300/5"
-                        delay={0.36}
-                    />
-                )}
-
-                {data.farmer && (
-                    <HighlightCard
-                        title="Agricultor"
-                        icon={<Swords className="w-6 h-6 text-emerald-300" />}
-                        player={data.farmer}
-                        color="border-emerald-300/50 bg-emerald-300/5"
-                        delay={0.37}
-                    />
-                )}
-
-                {data.stomper && (
-                    <HighlightCard
-                        title="Speedrun"
-                        icon={<Timer className="w-6 h-6 text-yellow-400" />}
-                        player={data.stomper}
-                        color="border-yellow-500/50 bg-yellow-500/5"
-                        delay={0.4}
-                    />
-                )}
-
-                {data.mostActive && (
-                    <HighlightCard
-                        title="Viciado"
-                        icon={<Calendar className="w-6 h-6 text-purple-400" />}
-                        player={data.mostActive}
-                        color="border-purple-500/50 bg-purple-500/5"
-                        delay={0.45}
-                    />
-                )}
-
-                {data.survivor && (
-                    <HighlightCard
-                        title="Sobrevivente"
-                        icon={<Skull className="w-6 h-6 text-gray-400" />}
-                        player={data.survivor}
-                        color="border-gray-500/50 bg-gray-500/5"
-                        delay={0.5}
-                    />
+                        {/* New SHAME Insights */}
+                        {shame.ghostFarmer && <HighlightCard title="Farmador Fantasma" icon={<TrendingUp className="w-5 h-5 text-gray-500" />} player={shame.ghostFarmer} color="border-gray-500/20 bg-gray-500/5" delay={0.2} extraInfo={shame.ghostFarmer?.detail} />}
+                        {shame.visionNegligente && <HighlightCard title="Cego em tiroteio" icon={<Eye className="w-5 h-5 text-red-500" />} player={shame.visionNegligente} color="border-red-500/20 bg-red-500/5" delay={0.3} extraInfo={shame.visionNegligente?.championName} />}
+                        {shame.sumido && <HighlightCard title="Exilado (Low KP)" icon={<User className="w-5 h-5 text-purple-400" />} player={shame.sumido} color="border-purple-500/20 bg-purple-500/5" delay={0.4} />}
+                    </motion.div>
                 )}
             </div>
         </div>
@@ -275,7 +248,8 @@ function HighlightCard({ title, icon, player, color, delay, extraInfo }: any) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
             transition={{ duration: 0.5, delay }}
         >
             <Card className={`p-6 border ${color} relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300`}>
@@ -303,7 +277,7 @@ function HighlightCard({ title, icon, player, color, delay, extraInfo }: any) {
                 </div>
 
                 <div className="flex items-center gap-4 relative z-10">
-                    <PlayerAvatar profileIconId={player.profileIconId} size="lg" className="ring-2 ring-white/10 group-hover:ring-white/30 transition-all shrink-0" />
+                    <PlayerAvatar profileIconId={player.profileIconId} size="lg" className="ring-2 ring-white/10 group-hover:ring-white/30 transition-all shrink-0" tier={player.tier} />
                     <div className="min-w-0">
                         <div className="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
                             {player.gameName}

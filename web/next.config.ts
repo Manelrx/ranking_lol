@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
+  // Rewrites handled by middleware.ts for dynamic Docker environment support
+  // async rewrites() { ... }
 };
 
 export default nextConfig;

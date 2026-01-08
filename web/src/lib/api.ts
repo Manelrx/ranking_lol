@@ -1,4 +1,11 @@
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333') + '/api';
+// Detect environment
+const isServer = typeof window === 'undefined';
+// Server Side: Use Internal Docker URL or Localhost
+const INTERNAL_API = process.env.API_INTERNAL_URL || 'http://127.0.0.1:3333';
+// Client Side: Use relative path (Rewrites)
+const API_URL = isServer ? `${INTERNAL_API}/api` : '/api';
+
+console.log(`[API Config] isServer=${isServer}, API_URL=${API_URL}`);
 
 export interface RankingEntry {
     rank: number;
@@ -147,6 +154,7 @@ export interface HighlightPlayer {
     value: string | number;
     label: string;
     championName?: string; // New for Mono
+    tier?: string;
 }
 
 export interface PeriodHighlights {
@@ -206,5 +214,83 @@ export async function getPdlEvolution(puuid: string, queue: 'SOLO' | 'FLEX' = 'S
 export async function getSystemStatus(): Promise<{ lastUpdate: string | null; nextUpdate: string | null }> {
     const res = await fetch(`${API_URL}/status?_t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return { lastUpdate: null, nextUpdate: null };
+    return res.json();
+}
+
+/**
+ * Add New Player (Admin)
+ */
+export async function createPlayer(gameName: string, tagLine: string, password: string): Promise<any> {
+    const res = await fetch(`${API_URL}/players`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-admin-password': password
+        },
+        body: JSON.stringify({ gameName, tagLine })
+    });
+
+    if (res.status === 401) {
+        throw new Error('Senha incorreta');
+    }
+
+    if (!res.ok) {
+        throw new Error('Falha ao adicionar jogador');
+    }
+
+    return res.json();
+}
+
+/**
+ * Hall of Fame/Shame Types
+ */
+export interface InsightPlayer {
+    puuid: string;
+    gameName: string;
+    tagLine: string;
+    profileIconId: number;
+    value: number | string;
+    label: string;
+    description?: string;
+    matchId?: string;
+    championName?: string;
+    detail?: string;
+    tier?: string; // Added tier
+}
+
+export interface HallOfFameData {
+    pentaKing: InsightPlayer | null;
+    stomper: InsightPlayer | null;
+    farmMachine: InsightPlayer | null;
+    // New
+    objectiveKing: InsightPlayer | null;
+    damageEfficient: InsightPlayer | null;
+    consistencyMachine: InsightPlayer | null;
+}
+
+export interface HallOfShameData {
+    lowDmg: InsightPlayer | null;
+    alface: InsightPlayer | null;
+    // New
+    ghostFarmer: InsightPlayer | null;
+    visionNegligente: InsightPlayer | null;
+    sumido: InsightPlayer | null;
+}
+
+/**
+ * Get Hall of Fame
+ */
+export async function getHallOfFame(queue: 'SOLO' | 'FLEX' = 'SOLO', period: 'WEEKLY' | 'MONTHLY' | 'GENERAL' = 'GENERAL'): Promise<HallOfFameData> {
+    const res = await fetch(`${API_URL}/insights/fame?queue=${queue}&period=${period}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to fetch Hall of Fame');
+    return res.json();
+}
+
+/**
+ * Get Hall of Shame
+ */
+export async function getHallOfShame(queue: 'SOLO' | 'FLEX' = 'SOLO', period: 'WEEKLY' | 'MONTHLY' | 'GENERAL' = 'GENERAL'): Promise<HallOfShameData> {
+    const res = await fetch(`${API_URL}/insights/shame?queue=${queue}&period=${period}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to fetch Hall of Shame');
     return res.json();
 }

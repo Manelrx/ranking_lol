@@ -7,7 +7,7 @@ import { PlayerAvatar } from "@/components/ui/PlayerAvatar";
 import { ChampionIcon } from "@/components/ui/ChampionIcon";
 import { EloBadge } from "@/components/EloBadge";
 import Link from "next/link";
-import { Search, Trophy, TrendingUp } from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 
 import { Suspense } from "react";
 import { useRouter } from "next/navigation";
@@ -18,10 +18,14 @@ function PlayersContent() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("");
 
+    // Add Summoner State
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newPlayer, setNewPlayer] = useState({ gameName: '', tagLine: '', password: '' });
+    const [addStatus, setAddStatus] = useState<'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR'>('IDLE');
+    const [errorMsg, setErrorMsg] = useState('');
+
     const router = useRouter();
     const { queueType } = useQueue();
-    // const searchParams = useSearchParams(); // Removed
-    // const queue = ... // Removed, using queueType directly
 
     useEffect(() => {
         const fetch = async () => {
@@ -38,7 +42,27 @@ function PlayersContent() {
         fetch();
     }, [queueType]);
 
-    // toggleQueue removed
+    const handleAddPlayer = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAddStatus('LOADING');
+        setErrorMsg('');
+
+        try {
+            const { createPlayer } = await import('@/lib/api');
+            await createPlayer(newPlayer.gameName, newPlayer.tagLine, newPlayer.password);
+
+            setAddStatus('SUCCESS');
+            setTimeout(() => {
+                setShowAddModal(false);
+                setAddStatus('IDLE');
+                setNewPlayer({ gameName: '', tagLine: '', password: '' });
+                window.location.reload();
+            }, 1500);
+        } catch (err: any) {
+            setAddStatus('ERROR');
+            setErrorMsg(err.message || 'Erro ao adicionar');
+        }
+    };
 
     const filtered = players.filter(p =>
         p.gameName.toLowerCase().includes(filter.toLowerCase()) ||
@@ -46,7 +70,7 @@ function PlayersContent() {
     );
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 min-h-screen pb-20">
+        <div className="space-y-8 animate-in fade-in duration-500 min-h-screen pb-20 relative">
             {/* Header com Busca e Toggle */}
             <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
                 <div>
@@ -55,7 +79,13 @@ function PlayersContent() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                    {/* Queue Toggle Removed - Uses Global Topbar */}
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2 justify-center"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        Adicionar Invocador
+                    </button>
 
                     <div className="relative w-full md:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
@@ -69,6 +99,74 @@ function PlayersContent() {
                     </div>
                 </div>
             </div>
+
+            {/* Modal Add Player */}
+            {showAddModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#1a1c23] border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 relative">
+                        <button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">x</button>
+
+                        <h3 className="text-xl font-bold text-white">Adicionar Invocador</h3>
+                        <p className="text-sm text-gray-400">Insira o Riot ID e a senha de administrador para rastrear um novo jogador.</p>
+
+                        <form onSubmit={handleAddPlayer} className="space-y-4 mt-4">
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="col-span-2 space-y-1">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Game Name</label>
+                                    <input
+                                        required
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-indigo-500 outline-none"
+                                        placeholder="Faker"
+                                        value={newPlayer.gameName}
+                                        onChange={e => setNewPlayer({ ...newPlayer, gameName: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Tag</label>
+                                    <input
+                                        required
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-indigo-500 outline-none"
+                                        placeholder="T1"
+                                        value={newPlayer.tagLine}
+                                        onChange={e => setNewPlayer({ ...newPlayer, tagLine: e.target.value.replace('#', '') })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 uppercase">Senha de Admin</label>
+                                <input
+                                    type="password"
+                                    required
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-indigo-500 outline-none"
+                                    placeholder="••••••••"
+                                    value={newPlayer.password}
+                                    onChange={e => setNewPlayer({ ...newPlayer, password: e.target.value })}
+                                />
+                            </div>
+
+                            {addStatus === 'ERROR' && (
+                                <div className="text-red-400 text-sm bg-red-500/10 p-2 rounded border border-red-500/20 text-center">
+                                    {errorMsg}
+                                </div>
+                            )}
+                            {addStatus === 'SUCCESS' && (
+                                <div className="text-emerald-400 text-sm bg-emerald-500/10 p-2 rounded border border-emerald-500/20 text-center">
+                                    Jogador adicionado com sucesso!
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={addStatus === 'LOADING' || addStatus === 'SUCCESS'}
+                                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-500/20 mt-2"
+                            >
+                                {addStatus === 'LOADING' ? 'Verificando...' : 'Adicionar'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Grid de Jogadores */}
             {loading ? (
@@ -91,6 +189,7 @@ function PlayersContent() {
                                         summonerLevel={player.summonerLevel}
                                         size="xl"
                                         className="mb-4 shadow-2xl"
+                                        tier={player.tier}
                                         ringColor={player.rank === 1 ? 'border-yellow-400 shadow-yellow-500/40' : undefined}
                                     />
 

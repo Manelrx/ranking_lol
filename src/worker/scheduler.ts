@@ -1,41 +1,28 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { spawn } from 'child_process';
-import { join } from 'path';
 import { CronJob } from 'cron';
+import { runIngestBatch } from '../cli/ingest-batch';
+import { runSyncRanks } from '../cli/sync-ranks';
+import { runSyncPlayers } from '../cli/sync-players';
+import { runRankingSeason } from '../cli/ranking-season';
+import { runSnapshot } from '../cli/snapshot';
 
 const prisma = new PrismaClient();
 
 // Flag to prevent overlapping jobs (extra safety)
 let isJobRunning = false;
 
-async function runScript(scriptName: string, args: string[] = []): Promise<void> {
-    return new Promise((resolve, reject) => {
-        console.log(`\n🚀 [SCHEDULER] Starting Job: ${scriptName}`);
-        const start = Date.now();
-
-        const child = spawn('npx', ['ts-node', join(__dirname, '../cli', scriptName), ...args], {
-            stdio: 'inherit',
-            shell: true,
-            env: { ...process.env, PATH: process.env.PATH }
-        });
-
-        child.on('close', (code) => {
-            const duration = ((Date.now() - start) / 1000).toFixed(2);
-            if (code === 0) {
-                console.log(`✅ [SCHEDULER] Finished ${scriptName} in ${duration}s`);
-                resolve();
-            } else {
-                console.error(`❌ [SCHEDULER] Failed ${scriptName} (Exit Code: ${code})`);
-                reject(new Error(`Script ${scriptName} failed with code ${code}`));
-            }
-        });
-
-        child.on('error', (err) => {
-            console.error(`❌ [SCHEDULER] Error spawning ${scriptName}:`, err);
-            reject(err);
-        });
-    });
+async function runJob(name: string, jobFn: () => Promise<void>): Promise<void> {
+    console.log(`\n🚀 [SCHEDULER] Starting Job: ${name}`);
+    const start = Date.now();
+    try {
+        await jobFn();
+        const duration = ((Date.now() - start) / 1000).toFixed(2);
+        console.log(`✅ [SCHEDULER] Finished ${name} in ${duration}s`);
+    } catch (e: any) {
+        console.error(`❌ [SCHEDULER] Failed ${name}:`, e.message);
+        throw e;
+    }
 }
 
 /**
@@ -51,26 +38,23 @@ async function checkBootstrap() {
 
         try {
             // 1. Sync Players (Create DB entries)
-            await runScript('sync-players.ts');
+            await runJob('sync-players', async () => await runSyncPlayers());
 
             // 2. Sync Ranks (Get initial Tier/LP)
-            await runScript('sync-ranks.ts');
+            await runJob('sync-ranks', async () => await runSyncRanks());
 
             // 3. Ingest Batch (Limited to 25 matches for speed/safety)
-            // We need to pass a flag or env var to ingest-batch to limit it.
-            // Or we create a specific argument parsing in ingest-batch.
-            // For now, let's assume we pass an ENV var via the child process
-            process.env.MATCH_LIMIT = '25';
-            // Note: We need to modify ingest-batch.ts to respect this env var!
-            await runScript('ingest-batch.ts');
-            delete process.env.MATCH_LIMIT; // Clean up
+            await runJob('ingest-batch', async () => {
+                process.env.MATCH_LIMIT = '25';
+                try {
+                    await runIngestBatch();
+                } finally {
+                    delete process.env.MATCH_LIMIT;
+                }
+            });
 
             // 4. Calculate Scores/Ranking
-            // Currently we don't have a separate "Calc Baseline" script, 
-            // but ingest-batch computes scores. 
-            // We might want to run a specific "ranking-season.ts" if it exists?
-            // Checking file list... "ranking-season.ts" exists.
-            await runScript('ranking-season.ts');
+            await runJob('ranking-season', async () => await runRankingSeason());
 
             // 5. Mark Complete
             await prisma.systemState.upsert({
@@ -92,32 +76,28 @@ async function checkBootstrap() {
 }
 
 async function startScheduler() {
-    console.log('⏰ Scheduler Starting (Queue Mode)...');
+    console.log('⏰ Scheduler Starting (Queue Mode - Direct Execution)...');
 
     // Ensure Bootstrap before accepting cron jobs
     await checkBootstrap();
 
     // Define Jobs
-    // Note: We use CronJob but we WRAP execution in a generic handler 
-    // to ensure NO overlaps if previous job is stuck.
-
-    const wrapJob = (name: string, script: string) => async () => {
+    const wrapJob = (name: string, jobFn: () => Promise<void>) => async () => {
         if (isJobRunning) {
             console.log(`⚠️ Skip ${name}: Another job is running.`);
             return;
         }
         isJobRunning = true;
         try {
-            await runScript(script);
+            await runJob(name, jobFn);
         } catch (e) {
-            console.error(`Error in job ${name}:`, e);
+            console.error(`Error in cron job ${name}:`, e);
         } finally {
             isJobRunning = false;
         }
     };
 
     // 1. Ingest & Rank Sync (Resilient Loop)
-    // Replaces rigid CronJob '0 */6 * * *' to allow retries on failure.
     const runIngestLoop = async () => {
         let success = false;
         try {
@@ -126,8 +106,8 @@ async function startScheduler() {
                 console.log('🔄 [SCHEDULER] Starting Update Cycle...');
 
                 // Serial Execution
-                await runScript('sync-ranks.ts');
-                await runScript('ingest-batch.ts');
+                await runJob('sync-ranks', async () => await runSyncRanks());
+                await runJob('ingest-batch', async () => await runIngestBatch());
 
                 // Track Last Update ONLY on Success
                 await prisma.systemState.upsert({
@@ -139,8 +119,6 @@ async function startScheduler() {
                 success = true;
             } else {
                 console.log('⚠️ [SCHEDULER] Skipping Update Cycle: Job already running.');
-                // If skipped because busy, we might want to retry sooner or just wait standard time.
-                // Let's treat as "wait standard time" to avoid spamming.
                 success = true;
             }
         } catch (error) {
@@ -158,21 +136,17 @@ async function startScheduler() {
         }
     };
 
-    // Start the loop (Initial run immediately or with slight delay?)
-    // Let's run immediately to ensure data is fresh on restart
+    // Start the loop
     runIngestLoop();
 
     // 2. Daily Snapshot (00:00)
-    // We assume snapshot.ts creates the PdlDailyStats? 
-    // Actually existing code has `sync-players` doing stats?
-    // Let's stick to the plan: "snapshot:daily" -> likely `snapshot.ts`
-    new CronJob('0 0 * * *', wrapJob('Daily Snapshot', 'snapshot.ts'), null, true, 'America/Sao_Paulo');
+    new CronJob('0 0 * * *', wrapJob('Daily Snapshot', async () => await runSnapshot()), null, true, 'America/Sao_Paulo');
 
     // 3. Player Sync (04:00 - Low Traffic)
-    new CronJob('0 4 * * *', wrapJob('Player Sync', 'sync-players.ts'), null, true, 'America/Sao_Paulo');
+    new CronJob('0 4 * * *', wrapJob('Player Sync', async () => await runSyncPlayers()), null, true, 'America/Sao_Paulo');
 
-    // 4. Weekly Insights (Monday 06:00)
-    // new CronJob('0 6 * * 1', wrapJob('Weekly Insights', 'calc-insights.ts'), null, true, 'America/Sao_Paulo');
+    // Note: ranking-season is usually implicit or on-demand, but if we wanted to run it periodically:
+    // new CronJob('0 */6 * * *', wrapJob('Ranking Calc', async () => await runRankingSeason()), null, true, 'America/Sao_Paulo');
 
     console.log('📅 Cron Jobs Scheduled.');
 

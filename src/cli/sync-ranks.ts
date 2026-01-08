@@ -13,7 +13,7 @@ const QUEUE_MAP = {
 
 
 
-async function main() {
+export async function runSyncRanks() {
     console.log(`\n🔄 Starting Sync Ranks Job...`);
 
     const apiKey = process.env.RIOT_API_KEY;
@@ -111,4 +111,6 @@ async function main() {
     }
 }
 
-main();
+if (require.main === module) {
+    runSyncRanks();
+}

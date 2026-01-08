@@ -61,13 +61,14 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
-      args:
-        # For local docker-compose, we point to localhost:3333 because the browser accesses it
-        NEXT_PUBLIC_API_URL: http://localhost:3333
+        # NEXT_PUBLIC_API_URL is NOT needed for build if we use rewrites & relative paths
+        # But we need environment for runtime if Next.js uses it server-side (standalone mode might need env matching)
     container_name: ranking_web
     restart: always
     ports:
       - "3000:3000"
+    environment:
+      - API_INTERNAL_URL=http://ranking_api:3333
     networks:
       - ranking_network
 

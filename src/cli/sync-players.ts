@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { RiotService } from '../services/riot.service';
-import { TRACKED_PLAYERS } from '../config/players';
+// import { TRACKED_PLAYERS } from '../config/players';
 import { DateUtils } from '../lib/date';
 import axios from 'axios';
 
@@ -26,40 +26,25 @@ async function loadChampionMap() {
     }
 }
 
-async function main() {
+export async function runSyncPlayers() {
     console.log('🔄 Iniciando Sincronização Completa (Evolution)...');
     await loadChampionMap();
 
     const today = DateUtils.normalizeDate(new Date());
 
-    for (const p of TRACKED_PLAYERS) {
+    const activePlayers = await prisma.player.findMany({ where: { isActive: true } });
+    console.log(`Found ${activePlayers.length} active players in Database.`);
+
+    for (const player of activePlayers) {
         try {
-            if (!p.isActive) continue;
+            console.log(`\n👤 Processando: ${player.gameName} #${player.tagLine}`);
+            const puuid = player.puuid;
 
-            console.log(`\n👤 Processando: ${p.gameName} #${p.tagLine}`);
+            // Optional: Sync Name Changes (Configurable? For now, let's trust DB or do a lightweight check)
+            // We skip name sync for speed unless specific flow requested.
 
-            // 1. Resolve Account & PUUID
-            let puuid = '';
-            let player = await prisma.player.findFirst({
-                where: { gameName: { equals: p.gameName, mode: 'insensitive' }, tagLine: { equals: p.tagLine, mode: 'insensitive' } }
-            });
+            // ... Continue with existing logic using 'player' and 'puuid' ...
 
-            if (player) {
-                puuid = player.puuid;
-            } else {
-                console.log('   -> Buscando PUUID...');
-                const account = await riotService.getAccountByRiotId(p.gameName, p.tagLine);
-                puuid = account.puuid;
-                player = await prisma.player.create({
-                    data: {
-                        puuid,
-                        gameName: account.gameName,
-                        tagLine: account.tagLine,
-                        displayName: `${account.gameName} #${account.tagLine}`,
-                        isActive: true
-                    }
-                });
-            }
 
             // 2. CHECK STALE DATA (24h Cache)
             const now = new Date();
@@ -191,9 +176,9 @@ async function main() {
 
         } catch (err: any) {
             if (err?.response?.status === 403) {
-                console.error(`❌ Erro 403 (Forbidden) em ${p.gameName}. Verifique a API Key.`);
+                console.error(`❌ Erro 403 (Forbidden) em ${player.gameName}. Verifique a API Key.`);
             } else {
-                console.error(`❌ Erro em ${p.gameName}: ${err.message}`);
+                console.error(`❌ Erro em ${player.gameName}: ${err.message}`);
             }
         }
     }
@@ -201,6 +186,8 @@ async function main() {
     console.log('\n✨ Sincronização Evolution Concluída!');
 }
 
-main()
-    .catch(e => console.error(e))
-    .finally(() => prisma.$disconnect());
+if (require.main === module) {
+    runSyncPlayers()
+        .catch(e => console.error(e))
+        .finally(() => prisma.$disconnect());
+}

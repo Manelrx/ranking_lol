@@ -4,7 +4,7 @@ import { RiotService } from '../services/riot.service';
 
 const prisma = new PrismaClient();
 
-async function main() {
+export async function runSnapshot() {
     console.log('--- Starting Rank Snapshot ---');
 
     if (!process.env.RIOT_API_KEY) {
@@ -67,6 +67,8 @@ async function main() {
     console.log(`Errors: ${errors}`);
 }
 
-main()
-    .catch(e => console.error(e))
-    .finally(async () => await prisma.$disconnect());
+if (require.main === module) {
+    runSnapshot()
+        .catch(e => console.error(e))
+        .finally(async () => await prisma.$disconnect());
+}

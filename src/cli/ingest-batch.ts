@@ -31,7 +31,7 @@ const getMatchDurationSeconds = (participants: Participant[]): number => {
     return Math.max(...participants.map(p => p.timePlayed ?? 0));
 };
 
-async function main() {
+export async function runIngestBatch() {
     const apiKey = process.env.RIOT_API_KEY;
     if (!apiKey) {
         console.error('Error: RIOT_API_KEY is not configured in .env');
@@ -193,7 +193,25 @@ async function main() {
                                 deaths: pData.deaths,
                                 assists: pData.assists,
                                 championName: pData.championName,
-                                championId: pData.championId
+                                championId: pData.championId,
+                                // Insights Data
+                                pentaKills: (pData as any).pentaKills || 0,
+                                quadraKills: (pData as any).quadraKills || 0,
+                                totalDamage: pData.totalDamageDealtToChampions || 0,
+                                totalMinions: pData.totalMinionsKilled + pData.neutralMinionsKilled,
+                                // Advanced Insights Data
+                                visionScore: pData.visionScore || 0,
+                                goldEarned: pData.goldEarned || 0,
+                                totalTimePlayed: pData.timePlayed || 0,
+                                firstBloodKill: (pData as any).firstBloodKill || false,
+                                challenges: {
+                                    goldDiffAt15: pData.challenges?.goldDiffAt15 || 0,
+                                    xpDiffAt15: pData.challenges?.xpDiffAt15 || 0,
+                                    killParticipation: pData.challenges?.killParticipation || 0,
+                                    dragonTakedowns: pData.challenges?.dragonTakedowns || 0,
+                                    baronTakedowns: pData.challenges?.baronTakedowns || 0,
+                                    teamDamagePercentage: pData.challenges?.teamDamagePercentage || 0
+                                }
                             } as any,
                             ratios: result.ratios
                         };
@@ -258,4 +276,6 @@ async function main() {
     }
 }
 
-main();
+if (require.main === module) {
+    runIngestBatch();
+}
