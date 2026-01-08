@@ -622,8 +622,8 @@ export class RankingService {
         let nextUpdate = null;
 
         if (lastUpdate) {
-            // Next update is 6 hours after last
-            nextUpdate = new Date(lastUpdate.getTime() + 6 * 60 * 60 * 1000);
+            // Next update is 1 hour after last
+            nextUpdate = new Date(lastUpdate.getTime() + 1 * 60 * 60 * 1000);
         }
 
         return {

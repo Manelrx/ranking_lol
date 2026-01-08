@@ -94,23 +94,23 @@ export function MatchDetailsSidePanel({ match, onClose }: MatchDetailsSidePanelP
 
                                     <ScoreRow
                                         icon={<Swords size={18} className="text-blue-400" />}
-                                        label="Combate (KDA & Dano)"
+                                        label="Performance"
                                         value={match.performanceScore}
-                                        max={60}
+                                        max={match.isVictory ? 60 : 20}
                                         color="bg-blue-500"
                                     />
                                     <ScoreRow
                                         icon={<Target size={18} className="text-amber-400" />}
                                         label="Objetivos"
                                         value={match.objectivesScore}
-                                        max={20}
+                                        max={match.isVictory ? 30 : 10}
                                         color="bg-amber-500"
                                     />
                                     <ScoreRow
                                         icon={<AlertCircle size={18} className="text-emerald-400" />}
-                                        label="Visão & Controle"
+                                        label="Disciplina"
                                         value={match.disciplineScore}
-                                        max={20}
+                                        max={10}
                                         color="bg-emerald-500"
                                     />
                                 </div>

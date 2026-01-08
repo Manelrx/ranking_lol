@@ -343,25 +343,24 @@ export const calculateMatchScore = (targetPuuid: string, match: MatchDTO): Match
             };
         }
 
-        // 2. Proportional Scoring (User Request)
-        // Instead of hard caps per section, scale the total earned score.
-        // If a player played like a god (100pts) but lost, they get 60pts (100 * 0.6).
-        // If they played average (50pts), they get 30pts.
+        // 2. Defeat Composition (User Request: 20/10/10 Limit)
+        // Perf (60) -> Cap 20 (Factor 0.33)
+        // Obj (30) -> Cap 10 (Factor 0.33)
+        // Disc (10) -> Cap 10 (Factor 1.0)
 
-        const DEFEAT_FACTOR = 0.6;
+        const perfFinal = Math.min(20, perfScore * 0.3333);
+        const objFinal = Math.min(10, objectivesScore * 0.3333);
+        const discFinal = Math.min(10, disciplineScore);
 
-        let total = (perfScore + objectivesScore + disciplineScore) * DEFEAT_FACTOR;
-
-        // Hard Cap just in case (e.g. 60 or 70)
-        // 100 * 0.6 = 60. So 60 is the natural max.
+        const total = perfFinal + objFinal + discFinal; // Max 40
 
         finalScore = total;
-        capApplied = `Defeat Scaling (x${DEFEAT_FACTOR})`;
+        capApplied = `Defeat Comp (Max 40)`;
 
-        // Scale breakdown for display consistency
-        perfScore *= DEFEAT_FACTOR;
-        objectivesScore *= DEFEAT_FACTOR;
-        disciplineScore *= DEFEAT_FACTOR;
+        // Override breakdown for display
+        perfScore = perfFinal;
+        objectivesScore = objFinal;
+        disciplineScore = discFinal;
     }
 
     return {

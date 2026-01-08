@@ -170,11 +170,12 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
                                             {/* Assuming ChampionIcon handles the image URL logic */}
                                             <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-500/30">
                                                 <img
-                                                    src={`https://ddragon.leagueoflegends.com/cdn/14.24.1/img/champion/${m.championName}.png`}
+                                                    src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${m.championId}.png`}
                                                     alt={m.championName}
                                                     className="w-full h-full object-cover transform scale-110"
+                                                    loading="lazy"
                                                     onError={(e) => {
-                                                        (e.target as HTMLImageElement).src = 'https://ddragon.leagueoflegends.com/cdn/14.24.1/img/profileicon/29.png'; // Fallback Poro
+                                                        (e.target as HTMLImageElement).src = 'https://ddragon.leagueoflegends.com/cdn/14.24.1/img/profileicon/29.png';
                                                     }}
                                                 />
                                             </div>

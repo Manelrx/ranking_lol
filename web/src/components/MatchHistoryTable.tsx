@@ -45,7 +45,7 @@ export function MatchHistoryTable({ history, onSelectMatch }: Props) {
                                                 <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xs border-2 border-gray-700">?</div>
                                             )}
                                             <div className="absolute -bottom-1 -right-1 bg-black/80 text-[10px] px-1 rounded border border-white/10 text-gray-300">
-                                                {{ 'TOP': 'TOP', 'JUNGLE': 'JNG', 'MIDDLE': 'MID', 'BOTTOM': 'ADC', 'UTILITY': 'SUP' }[match.lane] || match.lane?.substring(0, 3)}
+                                                {{ 'TOP': 'TOP', 'JUNGLE': 'JNG', 'MIDDLE': 'MID', 'BOTTOM': 'ADC', 'BOT': 'ADC', 'UTILITY': 'SUP', 'SUPPORT': 'SUP' }[match.lane] || match.lane?.substring(0, 3)}
                                             </div>
                                         </div>
                                         <div>

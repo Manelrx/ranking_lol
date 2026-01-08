@@ -150,7 +150,7 @@ async function startScheduler() {
             isJobRunning = false;
 
             // Schedule next run
-            const delayMinutes = success ? 360 : 30; // 6 Hours vs 30 Minutes
+            const delayMinutes = success ? 60 : 30; // 1 Hour vs 30 Minutes
             const nextRun = new Date(Date.now() + delayMinutes * 60 * 1000);
 
             console.log(`⏳ [SCHEDULER] Next Update Cycle in ${delayMinutes} minutes (${nextRun.toLocaleTimeString()})`);
