@@ -72,6 +72,16 @@ services:
     networks:
       - ranking_network
 
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: ranking_tunnel
+    restart: always
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    command: tunnel run
+    networks:
+      - ranking_network
+
 volumes:
   postgres_data:
 

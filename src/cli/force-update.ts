@@ -37,6 +37,9 @@ async function forceUpdate() {
     console.log('🔥 Initiating Manual Force Update...');
 
     try {
+        // 0. Sync Players (Icons, Levels, Mastery)
+        await runScript('sync-players.ts');
+
         // 1. Sync Ranks (Tier/LP)
         await runScript('sync-ranks.ts');
 

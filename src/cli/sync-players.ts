@@ -14,7 +14,7 @@ let CHAMPION_MAP: Record<number, string> = {};
 async function loadChampionMap() {
     try {
         console.log('🗺️  Baixando DataDragon Champions...');
-        const res = await axios.get('https://ddragon.leagueoflegends.com/cdn/14.24.1/data/pt_BR/champion.json');
+        const res = await axios.get('https://ddragon.leagueoflegends.com/cdn/16.1.1/data/pt_BR/champion.json');
         const data = res.data.data;
         for (const key in data) {
             const champ = data[key];

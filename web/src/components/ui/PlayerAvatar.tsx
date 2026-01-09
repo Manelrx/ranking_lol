@@ -37,8 +37,8 @@ export function PlayerAvatar({ profileIconId, summonerLevel, className, size = '
     const borderStyle = ringColor || (tier ? tierColors[tier.toUpperCase()] : '') || 'border-gray-700';
 
     const iconUrl = profileIconId
-        ? `https://ddragon.leagueoflegends.com/cdn/14.24.1/img/profileicon/${profileIconId}.png`
-        : `https://ddragon.leagueoflegends.com/cdn/14.24.1/img/profileicon/29.png`; // Generic Fallback
+        ? `https://ddragon.leagueoflegends.com/cdn/16.1.1/img/profileicon/${profileIconId}.png`
+        : `https://ddragon.leagueoflegends.com/cdn/16.1.1/img/profileicon/29.png`; // Generic Fallback
 
     return (
         <div className={twMerge("relative inline-block", className)}>
@@ -46,7 +46,7 @@ export function PlayerAvatar({ profileIconId, summonerLevel, className, size = '
                 src={iconUrl}
                 alt="Avatar"
                 onError={(e) => {
-                    e.currentTarget.src = "https://ddragon.leagueoflegends.com/cdn/14.24.1/img/profileicon/29.png";
+                    e.currentTarget.src = "https://ddragon.leagueoflegends.com/cdn/16.1.1/img/profileicon/29.png";
                 }}
                 className={clsx(
                     "rounded-2xl object-cover border-2 shadow-lg transition-transform hover:scale-105",

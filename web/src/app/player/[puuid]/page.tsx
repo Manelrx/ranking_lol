@@ -169,7 +169,7 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
                                                     className="w-full h-full object-cover transform scale-110"
                                                     loading="lazy"
                                                     onError={(e) => {
-                                                        (e.target as HTMLImageElement).src = 'https://ddragon.leagueoflegends.com/cdn/14.24.1/img/profileicon/29.png';
+                                                        (e.target as HTMLImageElement).src = 'https://ddragon.leagueoflegends.com/cdn/16.1.1/img/profileicon/29.png';
                                                     }}
                                                 />
                                             </div>
