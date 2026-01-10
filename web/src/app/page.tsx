@@ -163,12 +163,55 @@ export default function Home() {
   }
 
   return (
-    <div className="bg-[#050505] text-white selection:bg-emerald-500/30 w-full font-sans relative pb-32">
+    <div className="space-y-8 animate-in fade-in duration-700">
 
-      {/* 0. GLOBAL ATMOSPHERE */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#050505] via-[#050505] to-[#080c0a]" />
+      {/* Header Section */}
+      <section className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-2">
+            <Trophy className="w-8 h-8 text-emerald-400" />
+            Visão Geral
+          </h1>
+          <p className="text-gray-400 mt-1">Acompanhe a performance do servidor em tempo real.</p>
+        </div>
+        <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 self-start">
+          <span className={`w-2 h-2 rounded-full ${queue === 'SOLO' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]'}`}></span>
+          <span className="text-sm font-medium text-gray-300">
+            Fila: <span className="text-white font-bold">{queue === 'SOLO' ? 'Solo/Duo' : 'Flex'}</span>
+          </span>
+        </div>
+      </section>
+
+      {/* KPI Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard
+          label="Líder do Rank"
+          value={stats?.leader?.gameName || '-'}
+          subtext={stats?.leader ? `Elo: ${stats.leader.tier}` : 'Sem dados'}
+          icon={Crown}
+          color="text-yellow-400"
+        />
+        <KPICard
+          label="Média de Pontos"
+          value={stats?.avgScore || '0.0'}
+          subtext="RiftScore Index"
+          icon={Zap}
+          color="text-emerald-400"
+        />
+        <KPICard
+          label="Total de Partidas"
+          value={stats?.totalGames.toString() || '0'}
+          subtext="Analisadas na Season"
+          icon={Users}
+          color="text-blue-400"
+        />
+        {/* Placeholder for Trend or MVP */}
+        <Card className="p-0 border-0 bg-transparent flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Destaque</p>
+            <div className="text-xl font-bold text-white">EM BREVE</div>
+          </div>
+        </Card>
       </div>
 
       {/* 1. TICKER (Top Bar) - Shows Mix of Updates */}
@@ -176,30 +219,45 @@ export default function Home() {
         <Ticker trends={data.tickerData} />
       </div>
 
-      <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 md:px-8 pt-8">
-
-        {/* Spacer for aesthetics since header is gone */}
-        <div className="h-8" />
-
-        {/* 2. HERO SECTION */}
-        <HeroSection player={top1Player} pdlDelta={top1Delta} />
-
-        {/* 3. WEEKLY SPOTLIGHT (Heaven & Hell) */}
-        <WeeklySpotlight mvp={mvpPlayer} antiMvp={antiMvpPlayer} />
-
-        {/* 4. STORIES & CLIMBERS GRID */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-12 mb-24">
-
-          {/* Highlights (Stories) */}
-          <div className="xl:col-span-8">
-            <HighlightsCarousel fame={data.fame} shame={data.shame} />
-          </div>
-
-          {/* Side Panel: Climbers & Losers */}
-          <WeeklyClimbers trends={data.trends} />
+      {/* Right Column: Ranking Table (Takes 2/3) */}
+      <div className="lg:col-span-2 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            Classificação
+            <span className="text-xs font-normal text-gray-500 bg-white/5 px-2 py-0.5 rounded ml-2">Top 100</span>
+          </h3>
         </div>
 
+        {/* Side Panel: Climbers & Losers */}
+        <WeeklyClimbers trends={data.trends} />
       </div>
     </div>
+
+    </div >
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div></div>}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function KPICard({ label, value, subtext, icon: Icon, color }: any) {
+  return (
+    <Card hoverEffect className="relative overflow-hidden group">
+      <div className="relative z-10">
+        <div className="flex justify-between items-start mb-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
+          <Icon className={`w-5 h-5 ${color} opacity-70 group-hover:opacity-100 transition-opacity`} />
+        </div>
+        <div className="text-2xl font-bold text-white tracking-tight mb-1 truncate">{value}</div>
+        <p className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">{subtext}</p>
+      </div>
+      {/* Decoration */}
+      <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-5 group-hover:opacity-10 transition-opacity blur-2xl ${color.replace('text-', 'bg-')}`} />
+    </Card>
   );
 }
