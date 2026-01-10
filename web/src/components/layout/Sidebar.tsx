@@ -13,7 +13,7 @@ interface SidebarProps {
 
 const MENU_ITEMS = [
     { label: "Geral", href: "/", icon: Home },
-    { label: "Ranking por Elo", href: "/ranking/elo", icon: Trophy },
+    { label: "Ranking", href: "/ranking/elo", icon: Trophy },
     { label: "Ganho de PDL", href: "/ranking/pdl", icon: TrendingUp },
     { label: "Jogadores", href: "/players", icon: Users },
     { label: "Insights", href: "/insights", icon: Activity },

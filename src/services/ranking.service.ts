@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { RiotService } from './riot.service';
 
 const prisma = new PrismaClient();
 
@@ -27,9 +28,22 @@ export interface RankingEntry {
         points: number;
         level: number;
     };
+    // New: Lane Scores
+    laneScores: Record<string, number>;
+    // New: Skin for Hero
+    skin?: {
+        name: string;
+        splashUrl: string;
+        loadingUrl: string;
+    };
 }
 
 export class RankingService {
+    private riotService?: RiotService;
+
+    constructor(riotService?: RiotService) {
+        this.riotService = riotService;
+    }
 
     /**
      * Get General Season Ranking
@@ -76,6 +90,24 @@ export class RankingService {
             const wins = scores.filter(s => s.isVictory).length;
             const losses = scores.length - wins;
 
+            // Calculate Lane Scores
+            const laneScores: Record<string, number> = {
+                TOP: 0, JUNGLE: 0, MID: 0, BOT: 0, SUPPORT: 0
+            };
+
+            scores.forEach(s => {
+                let lane = s.lane || 'UNKNOWN';
+                // Normalize Riot Terms
+                if (lane === 'MIDDLE') lane = 'MID';
+                if (lane === 'BOTTOM') lane = 'BOT';
+                if (lane === 'UTILITY') lane = 'SUPPORT';
+
+                // Accumulate if valid lane
+                if (laneScores[lane] !== undefined) {
+                    laneScores[lane] += s.matchScore;
+                }
+            });
+
             const masteries = (player as any).masteries;
             const mainChamp = masteries?.[0] ? {
                 id: masteries[0].championId,
@@ -100,18 +132,30 @@ export class RankingService {
                 wins,
                 losses,
                 winRate: scores.length > 0 ? ((wins / scores.length) * 100).toFixed(1) + '%' : '0%',
-                mainChampion: mainChamp
+                mainChampion: mainChamp,
+                laneScores
             });
         }
 
         // 3. Sort by Total Score (RiftScore rules)
         const sorted = ranking.sort((a, b) => b.totalScore - a.totalScore).slice(0, limit);
 
-        // 4. Assign Rank
-        return sorted.map((entry, index) => ({
+        // 4. Assign Rank and Enrich Top 1
+        const results = sorted.map((entry, index) => ({
             ...entry,
             rank: index + 1
         }));
+
+        // Enrich Top 1 with Skin if RiotService is available
+        if (results.length > 0 && this.riotService && results[0].mainChampion) {
+            const top1 = results[0];
+            const skin = await this.riotService.getLatestSkin(top1.mainChampion.name);
+            if (skin) {
+                top1.skin = skin;
+            }
+        }
+
+        return results;
     }
 
     /**

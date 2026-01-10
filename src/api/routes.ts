@@ -3,9 +3,9 @@ import { RankingService } from '../services/ranking.service';
 import { PrismaClient } from '@prisma/client';
 import { RiotService } from '../services/riot.service';
 
-const rankingService = new RankingService();
 const prisma = new PrismaClient();
 const riotService = new RiotService(process.env.RIOT_API_KEY || '');
+const rankingService = new RankingService(riotService);
 
 export async function rankingRoutes(fastify: FastifyInstance) {
 

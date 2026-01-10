@@ -75,10 +75,15 @@
   background: rgba(39, 39, 42, 0.8);
 }
 
+html,
 body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
   font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: hidden;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* Custom Scrollbar for Dashboard feel */
