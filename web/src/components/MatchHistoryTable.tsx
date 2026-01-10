@@ -1,6 +1,7 @@
 'use client';
 
 import { MatchHistoryEntry } from '@/lib/api';
+import { Swords, Shield, Crosshair, Zap, Trees, Grip } from 'lucide-react';
 
 interface Props {
     history: MatchHistoryEntry[];
@@ -8,6 +9,19 @@ interface Props {
 }
 
 export function MatchHistoryTable({ history, onSelectMatch }: Props) {
+    // Helper for lane icon/color
+    const getLaneBadge = (lane: string) => {
+        const map: Record<string, { label: string, color: string, icon: any }> = {
+            'TOP': { label: 'TOP', color: 'text-orange-400 bg-orange-400/10 border-orange-400/20', icon: Swords },
+            'JUNGLE': { label: 'JNG', color: 'text-green-400 bg-green-400/10 border-green-400/20', icon: Trees },
+            'MIDDLE': { label: 'MID', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20', icon: Zap },
+            'BOTTOM': { label: 'ADC', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20', icon: Crosshair },
+            'UTILITY': { label: 'SUP', color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20', icon: Shield },
+        };
+        const key = lane === 'BOT' ? 'BOTTOM' : (lane === 'SUPPORT' ? 'UTILITY' : lane);
+        return map[key] || { label: lane.substring(0, 3), color: 'text-gray-400 bg-gray-400/10 border-gray-400/20', icon: Grip };
+    };
+
     return (
         <div className="overflow-hidden rounded-xl border border-[rgba(255,255,255,0.05)] shadow-xl bg-[var(--color-surface)]/40 backdrop-blur-md">
             <div className="overflow-x-auto">
@@ -22,66 +36,75 @@ export function MatchHistoryTable({ history, onSelectMatch }: Props) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                        {history.map((match) => (
-                            <tr
-                                key={match.matchId}
-                                onClick={() => onSelectMatch?.(match)}
-                                className="group hover:bg-white/5 transition-all cursor-pointer"
-                            >
-                                {/* Champion & Lane */}
-                                <td className="p-4 font-bold text-white">
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative">
-                                            {match.championId ? (
-                                                <img
-                                                    src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${match.championId}.png`}
-                                                    alt={match.championName}
-                                                    className="w-10 h-10 rounded-full border-2 border-gray-800 group-hover:border-[var(--color-primary)] transition-colors shadow-lg"
-                                                    width={40}
-                                                    height={40}
-                                                    loading="lazy"
-                                                />
-                                            ) : (
-                                                <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xs border-2 border-gray-700">?</div>
-                                            )}
-                                            <div className="absolute -bottom-1 -right-1 bg-black/80 text-[10px] px-1 rounded border border-white/10 text-gray-300">
-                                                {{ 'TOP': 'TOP', 'JUNGLE': 'JNG', 'MIDDLE': 'MID', 'BOTTOM': 'ADC', 'BOT': 'ADC', 'UTILITY': 'SUP', 'SUPPORT': 'SUP' }[match.lane] || match.lane?.substring(0, 3)}
+                        {history.map((match) => {
+                            const laneBadge = getLaneBadge(match.lane);
+                            const LaneIcon = laneBadge.icon;
+
+                            return (
+                                <tr
+                                    key={match.matchId}
+                                    onClick={() => onSelectMatch?.(match)}
+                                    className="group hover:bg-white/5 transition-all cursor-pointer relative"
+                                >
+                                    {/* Hover Indicator */}
+                                    <td className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--color-primary)] opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                                    {/* Champion & Lane */}
+                                    <td className="p-4 font-bold text-white pl-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative">
+                                                {match.championId ? (
+                                                    <img
+                                                        src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${match.championId}.png`}
+                                                        alt={match.championName}
+                                                        className="w-10 h-10 rounded-full border-2 border-gray-800 group-hover:border-[var(--color-primary)] transition-colors shadow-lg"
+                                                        width={40}
+                                                        height={40}
+                                                        loading="lazy"
+                                                    />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xs border-2 border-gray-700">?</div>
+                                                )}
+                                                <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full border border-black/50 shadow-sm text-[8px] bg-black ${laneBadge.color.split(' ')[0]}`}>
+                                                    <LaneIcon size={10} strokeWidth={3} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-bold leading-none">{match.championName}</div>
+                                                <div className="text-[10px] text-gray-500 font-mono mt-0.5">{laneBadge.label}</div>
                                             </div>
                                         </div>
-                                        <div>
-                                            <div className="text-sm font-bold leading-none">{match.championName}</div>
+                                    </td>
+
+                                    {/* Result */}
+                                    <td className="p-4">
+                                        <div className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border transition-shadow duration-300 ${match.isVictory
+                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                                                : 'bg-red-500/10 text-red-400 border-red-500/20 group-hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]'
+                                            }`}>
+                                            {match.isVictory ? 'Vitória' : 'Derrota'}
                                         </div>
-                                    </div>
-                                </td>
+                                    </td>
 
-                                {/* Result */}
-                                <td className="p-4">
-                                    <div className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${match.isVictory
-                                        ? 'bg-green-500/10 text-green-400 border-green-500/20 shadow-[0_0_10px_-4px_rgba(34,197,94,0.5)]'
-                                        : 'bg-red-500/10 text-red-400 border-red-500/20'
-                                        }`}>
-                                        {match.isVictory ? 'Vitória' : 'Derrota'}
-                                    </div>
-                                </td>
+                                    {/* KDA */}
+                                    <td className="p-4 text-center">
+                                        <div className="font-mono font-bold text-md text-gray-200 group-hover:text-white transition-colors">{match.kda}</div>
+                                    </td>
 
-                                {/* KDA */}
-                                <td className="p-4 text-center">
-                                    <div className="font-mono font-bold text-md text-gray-200">{match.kda}</div>
-                                </td>
+                                    {/* RiftScore */}
+                                    <td className="p-4 text-center">
+                                        <div className="font-bold text-lg text-[var(--color-primary)] group-hover:text-[var(--color-primary-hover)] transition-colors drop-shadow-[0_0_8px_rgba(99,102,241,0.5)] group-hover:scale-110 transform duration-300">
+                                            {match.score.toFixed(1)}
+                                        </div>
+                                    </td>
 
-                                {/* RiftScore */}
-                                <td className="p-4 text-center">
-                                    <div className="font-bold text-lg text-[var(--color-primary)] group-hover:text-[var(--color-primary-hover)] transition-colors drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]">
-                                        {match.score.toFixed(1)}
-                                    </div>
-                                </td>
-
-                                {/* Date */}
-                                <td className="p-4 text-right text-[var(--color-text-secondary)] text-xs font-mono">
-                                    {new Date(match.date).toLocaleDateString()}
-                                </td>
-                            </tr>
-                        ))}
+                                    {/* Date */}
+                                    <td className="p-4 text-right text-[var(--color-text-secondary)] text-xs font-mono">
+                                        {new Date(match.date).toLocaleDateString()}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                         {history.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="p-8 text-center text-gray-500">

@@ -1,49 +1,24 @@
-"use client";
+'use client';
+import { motion, useSpring, useTransform } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
-import { motion, useSpring, useTransform, useInView } from "framer-motion";
-import { useEffect, useRef } from "react";
+export function AnimatedCounter({ value, duration = 1.5, className }: { value: number | string; duration?: number; className?: string }) {
+    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+    const isFloat = typeof value === 'string' && value.includes('.');
 
-interface AnimatedCounterProps {
-    value: number;
-    format?: boolean; // If true, formats as integer (0 decimal). If false or undefined, no decimal constraint (or 2 decimal logic if needed)
-    className?: string;
-    suffix?: string;
-    decimals?: number;
-}
-
-export function AnimatedCounter({ value, format = true, className = "", suffix = "", decimals = 0 }: AnimatedCounterProps) {
-    const ref = useRef<HTMLSpanElement>(null);
-    const inView = useInView(ref, { once: true, margin: "-100px" });
-
-    const spring = useSpring(0, {
-        mass: 0.8,
-        stiffness: 75,
-        damping: 15
-    });
-
-    const display = useTransform(spring, (current) => {
-        if (format) {
-            return current.toFixed(decimals);
-        }
-        return current.toFixed(decimals);
-    });
-
-    useEffect(() => {
-        const unsubscribe = display.on("change", (latest) => {
-            if (ref.current) {
-                ref.current.textContent = latest + suffix;
-            }
-        });
-        return () => unsubscribe();
-    }, [display, suffix]);
-
-    useEffect(() => {
-        if (inView) {
-            spring.set(value);
-        }
-    }, [inView, value, spring]);
-
-    return (
-        <span ref={ref} className={className} />
+    // Spring animation for smooth counting
+    const spring = useSpring(0, { duration: duration * 1000, bounce: 0 });
+    const display = useTransform(spring, (current) =>
+        isFloat ? current.toFixed(1) : Math.round(current).toLocaleString()
     );
+
+    useEffect(() => {
+        spring.set(Number.isNaN(numericValue) ? 0 : numericValue);
+    }, [spring, numericValue]);
+
+    if (Number.isNaN(numericValue)) {
+        return <span className={className}>{value}</span>;
+    }
+
+    return <motion.span className={className}>{display}</motion.span>;
 }

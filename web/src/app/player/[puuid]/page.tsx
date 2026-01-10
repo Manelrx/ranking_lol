@@ -4,27 +4,35 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { getPlayerHistory, getPlayerInsights, getPdlEvolution, PlayerHistory, PlayerInsights, MatchHistoryEntry, PdlEvolution } from "@/lib/api";
 import { PdlChart } from "@/components/PdlChart";
-import { MatchHistoryTable } from "@/components/MatchHistoryTable";
+import { MatchHistoryGrid } from "@/components/MatchHistoryGrid";
 import { MatchDetailsSidePanel } from "@/components/MatchDetailsSidePanel";
 import { PlayerHeader } from "@/components/PlayerHeader";
 import { StatsGrid } from "@/components/StatsGrid";
-import { TrendingUp } from "lucide-react";
+import { WeeklyReportCard } from "@/components/WeeklyReportCard";
+import { PlaystyleRadar } from "@/components/PlaystyleRadar";
+import { MasteryShowcase } from "@/components/MasteryShowcase";
+import { TrendingUp, Award } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { useQueue } from "@/contexts/QueueContext";
 import { PlayerProfileSkeleton } from "@/components/PlayerProfileSkeleton";
+import { motion } from "framer-motion";
+import { BackgroundParticles } from "@/components/BackgroundParticles";
+import { getTheme } from "@/lib/tier-themes";
 
 export default function PlayerProfile({ params }: { params: Promise<{ puuid: string }> }) {
     const { puuid } = use(params);
     const router = useRouter();
     const { queueType, setQueueType } = useQueue();
-
-    // Use global context instead of URL params
     const queue = queueType;
 
     const [evolution, setEvolution] = useState<PdlEvolution | null>(null);
     const [history, setHistory] = useState<PlayerHistory | null>(null);
     const [insights, setInsights] = useState<PlayerInsights | null>(null);
-    const [loading, setLoading] = useState(true);
+
+    // Loading States
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [isRefetching, setIsRefetching] = useState(false);
+
     const [selectedMatch, setSelectedMatch] = useState<MatchHistoryEntry | null>(null);
 
     // Pagination & Sort State
@@ -44,208 +52,202 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
         return history.history.filter(h => new Date(h.date) >= cutoff);
     };
 
+    // Initial Load
     useEffect(() => {
-        const fetch = async () => {
-            setLoading(true);
+        const loadInitial = async () => {
+            setInitialLoading(true);
             try {
-                // Fetch with Pagination (Limit 10 default in API, but explicit here good practice)
                 const [hData, iData, eData] = await Promise.all([
                     getPlayerHistory(puuid, queue),
-                    getPlayerInsights(puuid, queue, page, 10, sort), // Pass page & sort
+                    getPlayerInsights(puuid, queue, 1, 10, sort),
                     getPdlEvolution(puuid, queue)
                 ]);
                 setHistory(hData);
                 setInsights(iData);
                 setEvolution(eData);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
+            } catch (e) { console.error(e); }
+            finally { setInitialLoading(false); }
         };
-        fetch();
-    }, [puuid, queue, page, sort]);
+        loadInitial();
+    }, [puuid, queue]); // Only on Queue or PUUID change (Full Reset)
 
-    // Reset page on queue/sort change
+    // Pagination/Sort Update (Background Fetch)
+    useEffect(() => {
+        if (initialLoading) return; // Don't conflict
+        const updateInsights = async () => {
+            setIsRefetching(true);
+            try {
+                const iData = await getPlayerInsights(puuid, queue, page, 10, sort);
+                setInsights(iData);
+            } catch (e) { console.error(e); }
+            finally { setIsRefetching(false); }
+        };
+        updateInsights();
+    }, [page, sort, puuid, queue, initialLoading]); // Added puuid, queue, initialLoading to dependencies
+
     useEffect(() => {
         setPage(1);
     }, [queue, sort]);
 
-    const handleQueueChange = (newQueue: 'SOLO' | 'FLEX') => {
-        setQueueType(newQueue);
-    };
-
-    if (loading) {
-        return <PlayerProfileSkeleton />;
-    }
-
+    if (initialLoading) return <PlayerProfileSkeleton />;
     if (!history || !insights) {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] text-center">
                 <h2 className="text-2xl font-bold text-white mb-2">Jogador não encontrado</h2>
-                <button onClick={() => router.push('/')} className="mt-4 px-6 py-2 bg-white/10 rounded-lg text-white hover:bg-white/20 transition-colors">
+                <button onClick={() => router.push('/')} className="mt-4 px-6 py-2 bg-white/10 rounded-lg hover:bg-white/20">
                     Voltar ao Ranking
                 </button>
             </div>
         );
     }
 
+    // --- THEME ENGINE ---
+    const theme = getTheme(history.player.tier);
+    // --------------------
+
     return (
-        <div className="min-h-screen pb-20 animate-in fade-in duration-500">
-            {/* 1. Header Principal */}
-            <PlayerHeader
-                displayName={history.player.displayName}
-                gameName={history.player.displayName.split('#')[0]}
-                tagLine={history.player.displayName.split('#')[1]}
-                tier={history.player.tier}
-                rank={history.player.rank}
-                lp={history.player.lp}
-                profileIconId={history.player.profileIconId}
-                summonerLevel={history.player.summonerLevel}
-                queueType={queue}
-                onQueueChange={handleQueueChange}
-            />
+        <div className={`min-h-screen pb-20 relative overflow-hidden ${theme.colors.background} transition-colors duration-700`}>
 
-            {/* 2. Main Grid Layout */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-8">
-                {/* Left Column (Stats & History) */}
-                <div className="xl:col-span-2 space-y-6">
-                    {/* Stats Cards */}
-                    <StatsGrid stats={insights.stats} />
+            <BackgroundParticles theme={theme} />
 
-                    {/* Evolution Chart */}
-                    <Card variant="glass" className="h-[400px]">
-                        <div className="flex items-center justify-between mb-6 p-2">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-                                    <TrendingUp size={20} />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-white">Evolução de PDL</h3>
-                                    <p className="text-xs text-gray-500">Histórico de Ranqueada</p>
-                                </div>
-                            </div>
+            {/* Dynamic Background Gradient (Refined) */}
+            <div className={`absolute top-0 inset-x-0 h-[1000px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${theme.gradients.hero} opacity-30 pointer-events-none blur-3xl`} />
 
-                            {/* Chart Controls */}
-                            <div className="flex items-center gap-2 bg-black/20 p-1 rounded-lg">
-                                {(['ALL', 'MONTHLY', 'WEEKLY'] as const).map((f) => (
-                                    <button
-                                        key={f}
-                                        onClick={() => setChartFilter(f)}
-                                        className={`px-3 py-1 text-[10px] font-bold rounded transition-colors ${chartFilter === f
-                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                            : 'text-gray-500 hover:text-white'
-                                            }`}
-                                    >
-                                        {f === 'ALL' ? 'GERAL' : f === 'MONTHLY' ? 'MÊS' : 'SEMANA'}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="h-[300px] w-full">
-                            <PdlChart history={getFilteredHistory()} />
-                        </div>
-                    </Card>
-                </div>
+            <div className={`max-w-7xl mx-auto px-4 sm:px-6 relative z-10 pt-8`}>
 
-                {/* Right Column (Future Modules or Sticky Ads/Info) */}
-                <div className="xl:col-span-1 space-y-6">
-                    <Card className="h-full min-h-[400px] flex flex-col">
-                        <div className="p-4 border-b border-white/5">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <span className="text-amber-400">★</span> Maestrias
-                            </h3>
-                        </div>
-                        <div className="flex-1 p-4 space-y-4">
-                            {history.masteries && history.masteries.length > 0 ? (
-                                history.masteries.map((m) => (
-                                    <div key={m.championId} className="flex items-center gap-4 p-2 hover:bg-white/5 rounded-lg transition-colors">
-                                        <div className="relative">
-                                            {/* Assuming ChampionIcon handles the image URL logic */}
-                                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-500/30">
-                                                <img
-                                                    src={`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${m.championId}.png`}
-                                                    alt={m.championName}
-                                                    className="w-full h-full object-cover transform scale-110"
-                                                    loading="lazy"
-                                                    onError={(e) => {
-                                                        (e.target as HTMLImageElement).src = 'https://ddragon.leagueoflegends.com/cdn/16.1.1/img/profileicon/29.png';
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="absolute -bottom-1 -right-1 bg-gray-900 text-xs font-bold px-1.5 rounded-full border border-gray-700">
-                                                {m.level}
-                                            </div>
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-bold text-gray-200">{m.championName}</p>
-                                            <p className="text-xs text-emerald-400 font-mono">
-                                                {new Intl.NumberFormat('pt-BR').format(m.points)} pts
-                                            </p>
-                                        </div>
+                {/* 1. Header Principal */}
+                <PlayerHeader
+                    displayName={history.player.displayName}
+                    gameName={history.player.displayName.split('#')[0]}
+                    tagLine={history.player.displayName.split('#')[1]}
+                    tier={history.player.tier}
+                    rank={history.player.rank}
+                    lp={history.player.lp}
+                    profileIconId={history.player.profileIconId}
+                    summonerLevel={history.player.summonerLevel}
+                    queueType={queue}
+                    onQueueChange={setQueueType}
+                    history={insights.history}
+                />
+
+                {/* 2. Main Grid Layout */}
+                <div className={`grid grid-cols-1 xl:grid-cols-12 ${theme.styles.layoutGap} mt-8`}>
+                    {/* Left Column (Chart, History) - 8 cols */}
+                    <div className={`xl:col-span-8 space-y-${theme.styles.layoutGap.replace('gap-', '')}`}>
+
+                        {/* A. Evolution Chart */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className={`${theme.styles.borderRadius} p-6 ${theme.colors.cardBg} shadow-2xl relative overflow-hidden`}
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg bg-white/5`}>
+                                        <TrendingUp size={20} className={theme.colors.accent} />
                                     </div>
-                                ))
-                            ) : (
-                                <div className="text-center text-gray-500 py-10">
-                                    <p>Nenhuma maestria encontrada.</p>
+                                    <div>
+                                        <h3 className={`text-lg font-bold ${theme.colors.text}`}>Evolução de PDL</h3>
+                                    </div>
+                                </div>
+                                {/* Filters */}
+                                <div className="flex bg-black/20 p-1 rounded-lg">
+                                    {(['ALL', 'MONTHLY', 'WEEKLY'] as const).map((f) => (
+                                        <button
+                                            key={f}
+                                            onClick={() => setChartFilter(f)}
+                                            className={`px-3 py-1 text-[10px] font-bold rounded transition-colors ${chartFilter === f ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-white'
+                                                }`}
+                                        >
+                                            {f === 'ALL' ? 'GERAL' : f === 'MONTHLY' ? 'MÊS' : 'SEMANA'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="h-[300px] w-full">
+                                <PdlChart history={getFilteredHistory()} theme={theme} />
+                            </div>
+                        </motion.div>
+
+                        {/* B. Match History Grid */}
+                        <div className="relative">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className={`text-lg font-bold ${theme.colors.text} uppercase tracking-wider flex items-center gap-2`}>
+                                    Histórico
+                                    {isRefetching && <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-zinc-400 animate-pulse">Atualizando...</span>}
+                                </h3>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setSort('desc')} className={`text-xs font-bold px-2 py-1 rounded transition-colors ${sort === 'desc' ? 'text-white bg-white/10' : 'text-zinc-500 hover:text-zinc-300'}`}>Recente</button>
+                                    <button onClick={() => setSort('asc')} className={`text-xs font-bold px-2 py-1 rounded transition-colors ${sort === 'asc' ? 'text-white bg-white/10' : 'text-zinc-500 hover:text-zinc-300'}`}>Antigo</button>
+                                </div>
+                            </div>
+
+                            {/* Content with Opacity Transition */}
+                            <div className={`transition-opacity duration-300 ${isRefetching ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                                <MatchHistoryGrid history={insights.history} theme={theme} onSelectMatch={setSelectedMatch} />
+                            </div>
+
+                            {/* Modern Pagination Bar */}
+                            {insights.pagination && insights.pagination.totalPages > 1 && (
+                                <div className="flex justify-between items-center mt-6 bg-black/20 p-2 rounded-xl border border-white/5 backdrop-blur-sm">
+                                    <button
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1 || isRefetching}
+                                        className="px-4 py-2 hover:bg-white/5 rounded-lg text-xs font-bold text-zinc-400 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center gap-2"
+                                    >
+                                        <span>←</span> Anterior
+                                    </button>
+
+                                    <span className="text-xs font-mono font-bold text-zinc-600">
+                                        Página <span className="text-white">{page}</span> de {insights.pagination.totalPages}
+                                    </span>
+
+                                    <button
+                                        onClick={() => setPage(p => Math.min(insights.pagination!.totalPages, p + 1))}
+                                        disabled={page >= insights.pagination.totalPages || isRefetching}
+                                        className="px-4 py-2 hover:bg-white/5 rounded-lg text-xs font-bold text-zinc-400 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center gap-2"
+                                    >
+                                        Próximo <span>→</span>
+                                    </button>
                                 </div>
                             )}
                         </div>
-                    </Card>
+
+                    </div>
+
+                    {/* Right Column (Stats, Weekly, Mastery) - 4 cols */}
+                    <div className={`xl:col-span-4 space-y-${theme.styles.layoutGap.replace('gap-', '')}`}>
+
+                        {/* A. Profile Stats (Moved Here) */}
+                        <div className="space-y-2">
+                            <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest px-1">Performance Geral</h4>
+                            {/* Force 2 cols for sidebar look */}
+                            <StatsGrid stats={insights.stats} theme={theme} className="!grid-cols-2 !lg:grid-cols-2 !mb-0" />
+                        </div>
+
+                        {/* B. Weekly Report (Backend Driven) */}
+                        {insights.weeklyReport && (
+                            <WeeklyReportCard
+                                theme={theme}
+                                report={insights.weeklyReport}
+                            />
+                        )}
+
+                        {/* C. Playstyle Radar (New) */}
+                        {insights.playstyle && (
+                            <PlaystyleRadar
+                                playstyle={insights.playstyle}
+                                theme={theme}
+                            />
+                        )}
+
+                        {/* D. Mastery Card */}
+                        <MasteryShowcase masteries={history.masteries} theme={theme} />
+
+                    </div>
                 </div>
             </div>
-
-            {/* History Section */}
-            <section className="mt-8 space-y-4">
-                <div className="flex items-center justify-between px-2">
-                    <h3 className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                        Histórico de Partidas
-                    </h3>
-
-                    {/* Sort Controls */}
-                    <div className="flex items-center gap-2 bg-black/30 p-1 rounded-lg border border-white/5">
-                        <button
-                            onClick={() => setSort('desc')}
-                            className={`px-3 py-1 text-xs font-bold rounded ${sort === 'desc' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
-                        >
-                            Recente
-                        </button>
-                        <button
-                            onClick={() => setSort('asc')}
-                            className={`px-3 py-1 text-xs font-bold rounded ${sort === 'asc' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
-                        >
-                            Antigo
-                        </button>
-                    </div>
-                </div>
-                <MatchHistoryTable
-                    history={insights.history}
-                    onSelectMatch={setSelectedMatch}
-                />
-
-                {/* Pagination Controls */}
-                {insights.pagination && insights.pagination.totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-4 py-4">
-                        <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                            className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-bold text-white transition-colors"
-                        >
-                            Anterior
-                        </button>
-                        <span className="text-sm text-gray-400 font-mono">
-                            Página <span className="text-white">{page}</span> de <span className="text-white">{insights.pagination.totalPages}</span>
-                        </span>
-                        <button
-                            onClick={() => setPage(p => Math.min(insights.pagination!.totalPages, p + 1))}
-                            disabled={page >= insights.pagination.totalPages}
-                            className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-bold text-white transition-colors"
-                        >
-                            Próximo
-                        </button>
-                    </div>
-                )}
-            </section>
 
             {/* Side Panel Overlay */}
             <MatchDetailsSidePanel

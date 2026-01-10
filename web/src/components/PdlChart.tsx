@@ -2,6 +2,7 @@
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { PlayerHistoryEntry } from "@/lib/api";
+import { TierTheme } from "@/lib/tier-themes";
 
 // Tier Base Values
 const TIER_VALUES: Record<string, number> = {
@@ -29,9 +30,9 @@ const TIER_LABELS = {
     2800: "Mestre+"
 };
 
-export function PdlChart({ history }: { history: PlayerHistoryEntry[] }) {
+export function PdlChart({ history, theme }: { history: PlayerHistoryEntry[], theme: TierTheme }) {
     if (!history || history.length === 0) return (
-        <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+        <div className={`flex items-center justify-center h-full text-zinc-500 text-sm`}>
             Sem dados de histórico suficientes.
         </div>
     );
@@ -63,14 +64,16 @@ export function PdlChart({ history }: { history: PlayerHistoryEntry[] }) {
     const minDomain = Math.floor(minValue / 400) * 400;
     const maxDomain = Math.ceil(maxValue / 400) * 400 + 100;
 
+    const chartColor = theme.colors.hex || '#10b981'; // Fallback to emerald if missing (shouldn't happen)
+
     return (
         <div className="w-full h-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <defs>
-                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        <linearGradient id={`colorValue-${theme.id}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={chartColor} stopOpacity={0.3} />
+                            <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                         </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -113,14 +116,7 @@ export function PdlChart({ history }: { history: PlayerHistoryEntry[] }) {
                         itemStyle={{ color: "#E5E7EB", fontSize: "12px" }}
                         formatter={(value: any, name: any, props: any) => [
                             <span key="val" className="font-bold flex items-center gap-2">
-                                <span className={
-                                    props.payload.tier === 'CHALLENGER' ? 'text-yellow-400' :
-                                        props.payload.tier === 'GRANDMASTER' ? 'text-red-400' :
-                                            props.payload.tier === 'MASTER' ? 'text-purple-400' :
-                                                props.payload.tier === 'DIAMOND' ? 'text-blue-400' :
-                                                    props.payload.tier === 'EMERALD' ? 'text-emerald-400' :
-                                                        'text-white'
-                                }>
+                                <span style={{ color: chartColor }}>
                                     {props.payload.tier} {props.payload.rank}
                                 </span>
                                 <span className="text-gray-400">|</span>
@@ -134,11 +130,11 @@ export function PdlChart({ history }: { history: PlayerHistoryEntry[] }) {
                     <Area
                         type="monotone"
                         dataKey="value"
-                        stroke="#10b981"
+                        stroke={chartColor}
                         strokeWidth={2}
                         fillOpacity={1}
-                        fill="url(#colorValue)"
-                        activeDot={{ r: 4, fill: '#fff', stroke: '#10b981', strokeWidth: 2 }}
+                        fill={`url(#colorValue-${theme.id})`}
+                        activeDot={{ r: 4, fill: '#fff', stroke: chartColor, strokeWidth: 2 }}
                         animationDuration={1000}
                     />
                 </AreaChart>

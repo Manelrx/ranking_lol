@@ -105,6 +105,11 @@ export interface MatchHistoryEntry {
     disciplineScore: number;
     championName: string;
     championId?: number;
+    // Extended Stats
+    cs: number;
+    gold: number;
+    damage: number;
+    duration: number; // Seconds
 }
 
 export interface PlayerInsights {
@@ -119,6 +124,18 @@ export interface PlayerInsights {
     insights: {
         consistency: string;
         trend: string;
+    };
+    weeklyReport: {
+        wins: number;
+        losses: number;
+        total: number;
+        winRate: string;
+        pdlDelta: number;
+    };
+    playstyle: {
+        combat: number;
+        objectives: number;
+        discipline: number;
     };
 }
 
@@ -262,19 +279,32 @@ export interface HallOfFameData {
     pentaKing: InsightPlayer | null;
     stomper: InsightPlayer | null;
     farmMachine: InsightPlayer | null;
-    // New
     objectiveKing: InsightPlayer | null;
     damageEfficient: InsightPlayer | null;
     consistencyMachine: InsightPlayer | null;
+    // New
+    torreDemolidora: InsightPlayer | null;
+    soloClutch: InsightPlayer | null;
+    costasSeguras: InsightPlayer | null;
+    earlyTyrant: InsightPlayer | null;
+    lateDemon: InsightPlayer | null;
+    jungleGod: InsightPlayer | null;
+    macroPerfect: InsightPlayer | null;
 }
 
 export interface HallOfShameData {
     lowDmg: InsightPlayer | null;
     alface: InsightPlayer | null;
-    // New
-    ghostFarmer: InsightPlayer | null;
+    farmLimbo: InsightPlayer | null; // Renamed from ghostFarmer
     visionNegligente: InsightPlayer | null;
     sumido: InsightPlayer | null;
+    // New
+    sonecaBaron: InsightPlayer | null;
+    killCollector: InsightPlayer | null;
+    throwingStation: InsightPlayer | null;
+    soloDoador: InsightPlayer | null;
+    telaPreta: InsightPlayer | null;
+    moedaBronze: InsightPlayer | null;
 }
 
 /**

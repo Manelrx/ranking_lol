@@ -287,58 +287,127 @@ export class RankingService {
             include: { match: true }
         });
 
-        // Calc Stats (Ideally should be aggregated separately or cached, but for now we calc on page 1 or separate query?)
-        // Issue: If we paginate, 'avgScore' and 'winRate' must reflect TOTAL stats, not just this page.
-        // So we need a separate aggregation query for stats, and one for history list.
-
         // Aggregation Query (All Time)
-        // Using Prisma aggregate for performance
+        // Includes Playstyle metrics (Performance, Objectives, Discipline)
         const aggregations = await prisma.matchScore.aggregate({
             where: { playerId: puuid, queueType: queueType } as any,
-            _avg: { matchScore: true, kills: true, deaths: true, assists: true },
+            _avg: {
+                matchScore: true,
+                kills: true,
+                deaths: true,
+                assists: true,
+                performanceScore: true,
+                objectivesScore: true,
+                disciplineScore: true
+            },
             _sum: { kills: true, deaths: true, assists: true },
-            _min: { matchScore: true },
             _max: { matchScore: true },
-            _count: { isVictory: true } // Only counts rows, need conditional for wins
+            _min: { matchScore: true },
         });
 
-        // Count wins specifically
         const wins = await prisma.matchScore.count({
             where: { playerId: puuid, queueType: queueType, isVictory: true } as any
         });
-
-        // Best/Worst (Could be optimized but simple min/max works from agg)
 
         // KDA Calc (Total)
         const totalK = aggregations._sum.kills || 0;
         const totalD = aggregations._sum.deaths || 0;
         const totalA = aggregations._sum.assists || 0;
         const avgKda = totalD === 0 ? (totalK + totalA) : ((totalK + totalA) / totalD).toFixed(2);
-
         const winRate = totalMatches > 0 ? ((wins / totalMatches) * 100).toFixed(1) : "0.0";
 
         // Enhanced Match History Map (Paginated)
         const matchHistory = scores.map(s => {
+            const metrics = s.metrics as any;
             return {
                 matchId: s.matchId,
                 date: s.match.gameCreation,
                 lane: s.lane,
                 isVictory: s.isVictory,
                 score: s.matchScore,
-                // Breakdown Scores
                 performanceScore: s.performanceScore,
                 objectivesScore: s.objectivesScore,
                 disciplineScore: s.disciplineScore,
-                // KDA Details (Top Level)
                 kills: s.kills,
                 deaths: s.deaths,
                 assists: s.assists,
                 kda: `${s.kills}/${s.deaths}/${s.assists}`,
-                // Champion
                 championName: s.championName || 'Unknown',
-                championId: s.championId
+                championId: s.championId,
+                cs: (metrics?.totalMinionsKilled || 0) + (metrics?.neutralMinionsKilled || 0),
+                gold: metrics?.goldEarned || 0,
+                damage: metrics?.totalDamageDealtToChampions || metrics?.totalDamage || 0,
+                duration: s.match.gameDuration || 0
             };
         });
+
+        // --- Weekly Report Calculation ---
+        const now = new Date();
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+        const startOfWeek = new Date(now.setDate(diff));
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        // Weekly Matches
+        const weeklyMatchesState = await prisma.matchScore.groupBy({
+            by: ['isVictory'],
+            where: {
+                playerId: puuid,
+                queueType,
+                match: { gameCreation: { gte: startOfWeek } }
+            },
+            _count: { _all: true }
+        });
+
+        const weeklyWins = weeklyMatchesState.find(x => x.isVictory)?._count._all || 0;
+        const weeklyLosses = weeklyMatchesState.find(x => !x.isVictory)?._count._all || 0;
+        const weeklyTotal = weeklyWins + weeklyLosses;
+        const weeklyWr = weeklyTotal > 0 ? ((weeklyWins / weeklyTotal) * 100).toFixed(0) : "0";
+
+        // Weekly PDL Delta
+        // Helper to normalize LP
+        const getVal = (tier: string, rank: string, lp: number) => {
+            const tierMap: any = { IRON: 0, BRONZE: 400, SILVER: 800, GOLD: 1200, PLATINUM: 1600, EMERALD: 2000, DIAMOND: 2400, MASTER: 2800, GRANDMASTER: 2800, CHALLENGER: 2800 };
+            const rankMap: any = { 'IV': 0, 'III': 100, 'II': 200, 'I': 300, '': 0 }; // Added empty handling
+            const tierVal = tierMap[tier] || 0;
+            const rankVal = rankMap[rank] || 0;
+            if (tierVal >= 2800) return tierVal + lp;
+            return tierVal + rankVal + lp;
+        };
+
+        // Get Latest Snapshot (Current)
+        const currentSnapshot = await prisma.rankSnapshot.findFirst({
+            where: { playerId: puuid, queueType },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        // Get Baseline Snapshot (Last before startOfWeek)
+        const baselineSnapshot = await prisma.rankSnapshot.findFirst({
+            where: { playerId: puuid, queueType, createdAt: { lt: startOfWeek } },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        // Use logic: if no baseline, try first of week. If no current, 0.
+        let pdlDelta = 0;
+        if (currentSnapshot) {
+            const currentVal = getVal(currentSnapshot.tier, currentSnapshot.rank, currentSnapshot.lp);
+            let baseVal = currentVal; // Default to 0 change
+
+            if (baselineSnapshot) {
+                baseVal = getVal(baselineSnapshot.tier, baselineSnapshot.rank, baselineSnapshot.lp);
+            } else {
+                // Try first snapshot of the week
+                const firstOfWeek = await prisma.rankSnapshot.findFirst({
+                    where: { playerId: puuid, queueType, createdAt: { gte: startOfWeek } },
+                    orderBy: { createdAt: 'asc' }
+                });
+                if (firstOfWeek) {
+                    baseVal = getVal(firstOfWeek.tier, firstOfWeek.rank, firstOfWeek.lp);
+                }
+            }
+            pdlDelta = currentVal - baseVal;
+        }
+
 
         return {
             stats: {
@@ -357,8 +426,21 @@ export class RankingService {
                 totalPages: Math.ceil(totalMatches / limit)
             },
             insights: {
-                consistency: 'Alta',
-                trend: 'UP'
+                consistency: 'Alta', // Placeholder
+                trend: pdlDelta > 0 ? 'UP' : 'DOWN'
+            },
+            // NEW: Backend Source of Truth
+            weeklyReport: {
+                wins: weeklyWins,
+                losses: weeklyLosses,
+                total: weeklyTotal,
+                winRate: weeklyWr,
+                pdlDelta
+            },
+            playstyle: {
+                combat: Math.round(aggregations._avg.performanceScore || 0),
+                objectives: Math.round(aggregations._avg.objectivesScore || 0),
+                discipline: Math.round(aggregations._avg.disciplineScore || 0)
             }
         };
     }
@@ -734,6 +816,31 @@ export class RankingService {
         let teamfightMaestro: any = null;
         let tfRecord = -1;
 
+        // New Insights
+        let torreDemolidora: any = null;
+        let torreRecord = -1;
+
+        let roamerMestre: any = null;
+        let roamRecord = -1;
+
+        let soloClutch: any = null;
+        let soloRecord = -1;
+
+        let costasSeguras: any = null;
+        let costasRecord = -1;
+
+        let earlyTyrant: any = null;
+        let earlyRecord = -1;
+
+        let lateDemon: any = null;
+        let lateRecord = -1;
+
+        let jungleGod: any = null;
+        let jungleRecord = -1;
+
+        let macroPerfect: any = null;
+        let macroRecord = -1;
+
         // Populate Aggregations & Single Game Checks
         for (const s of scores) {
             const metrics = s.metrics as any;
@@ -781,17 +888,109 @@ export class RankingService {
                 objRecord = wObj;
                 objectiveKing = { ...s.player, value: wObj, label: 'Pts Objetivos', matchId: s.matchId, champion: s.championName };
             }
+
+            // 1. Torre Demolidora (Plates * 150 + Dmg Buildings)
+            const plates = Number(metrics?.turretPlatesTaken || 0);
+            const dmgBuildings = Number(metrics?.damageDealtToBuildings || 0);
+            const towerScore = (plates * 150) + dmgBuildings;
+            if (towerScore > torreRecord) {
+                torreRecord = towerScore;
+                torreDemolidora = { ...s.player, value: Number(dmgBuildings).toLocaleString(), label: 'Dano a Torres', matchId: s.matchId, champion: s.championName, detail: `${plates} Placas` };
+            }
+
+            // 2. SoloClutch (Solo Kills)
+            const solos = Number(challenges.soloKills || 0);
+            if (solos > soloRecord) {
+                soloRecord = solos;
+                soloClutch = { ...s.player, value: solos, label: 'Solo Kills', matchId: s.matchId, champion: s.championName };
+            }
+
+            // 3. Costas Seguras (Sup/Tank)
+            if (s.lane === 'UTILITY' || s.lane === 'JUNGLE') {
+                const saves = Number(challenges.saveAllyFromDeath || 0);
+                // Weight assists heavily
+                const guardScore = saves * 2 + s.assists;
+                if (guardScore > costasRecord) {
+                    costasRecord = guardScore;
+                    costasSeguras = { ...s.player, value: saves, label: 'Salvos da Morte', matchId: s.matchId, champion: s.championName, detail: `${s.assists} Assists` };
+                }
+            }
+
+            // 4. Early Game Tyrant (Gold Diff @ 15)
+            const earlyDiff = (Number(challenges.goldDiffAt15 || 0)) + (Number(challenges.xpDiffAt15 || 0) * 2); // XP worth more early?
+            if (earlyDiff > earlyRecord) {
+                earlyRecord = earlyDiff;
+                earlyTyrant = { ...s.player, value: Number(challenges.goldDiffAt15 || 0).toFixed(0), label: 'Vantagem Ouro @15', matchId: s.matchId, champion: s.championName };
+            }
+
+            // 5. Late Game Demon (> 30 min, High KDA/Dmg)
+            if (s.match.gameDuration > 1800) { // 30min
+                const lateScore = (metrics.totalDamage || 0) + ((s.kills + s.assists) * 1000);
+                if (lateScore > lateRecord) {
+                    lateRecord = lateScore;
+                    lateDemon = { ...s.player, value: `${s.kills}/${s.deaths}/${s.assists}`, label: 'KDA Late Game', matchId: s.matchId, champion: s.championName };
+                }
+            }
+
+            // 6. Jungle Pathing God (JG Only)
+            if (s.lane === 'JUNGLE') {
+                const monsterKills = (Number(challenges.enemyJungleMonsterKills || 0)) + (Number(metrics.totalMinions || 0)); // totalMinions includes neutral
+                const jgScore = monsterKills + (Number(metrics.visionScore || 0) * 2);
+                if (jgScore > jungleRecord) {
+                    jungleRecord = jgScore;
+                    jungleGod = { ...s.player, value: monsterKills, label: 'Campos Farmados', matchId: s.matchId, champion: s.championName };
+                }
+            }
+
+            // 7. Macro Perfect (Low Kills, High Obj, Win)
+            if (s.isVictory && s.kills < 5) {
+                const macroScore = (challenges.turretTakedowns || 0) + (challenges.dragonTakedowns || 0) * 2;
+                if (macroScore > macroRecord) {
+                    macroRecord = macroScore;
+                    macroPerfect = { ...s.player, value: macroScore, label: 'Objetivos (Low Kill)', matchId: s.matchId, champion: s.championName };
+                }
+            }
+
+            // --- Aggregated Records ---
+            const validStats = Object.values(playerStats).filter(s => s.games >= (period === 'WEEKLY' ? 2 : 5));
+
+            // Penta King (Sum)
+            const pentaWinner = Object.values(playerStats).sort((a, b) => b.pentaCount - a.pentaCount)[0];
+            const pentaKing = (pentaWinner && pentaWinner.pentaCount > 0) ? { ...pentaWinner.player, value: pentaWinner.pentaCount, label: 'Pentakills' } : null;
+
+            // Consistency Machine (Low StdDev)
+            let consistencyMachine: any = null;
+            let lowestStdDev = 999;
+            const calcStdDev = (arr: number[]) => {
+                const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+                const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / arr.length;
+                return Math.sqrt(variance);
+            };
+
+            for (const p of validStats) {
+                const stdDev = calcStdDev(p.scores);
+                if (stdDev < lowestStdDev && p.games >= 5) { // Minimum games for consistency
+                    lowestStdDev = stdDev;
+                    consistencyMachine = { ...p.player, value: stdDev.toFixed(1), label: 'Desvio Padrão' };
+                }
+            }
         }
 
         // --- Aggregated Records ---
+        // Lane Bully (Avg Diff @ 15) - Requires aggregating diffs.
+        // Since we don't have diffs in `scores` loop easily without extra query or complex type, skipping for now or approximating?
+        // Wait, I added `goldDiffAt15` to metrics in ingest. But only for NEW matches.
+        // Logic: Calculate Avg Diff for players.
         const validStats = Object.values(playerStats).filter(s => s.games >= (period === 'WEEKLY' ? 2 : 5));
 
         // Penta King (Sum)
         const pentaWinner = Object.values(playerStats).sort((a, b) => b.pentaCount - a.pentaCount)[0];
         const pentaKing = (pentaWinner && pentaWinner.pentaCount > 0) ? { ...pentaWinner.player, value: pentaWinner.pentaCount, label: 'Pentakills' } : null;
 
-        // Consistency Machine (Low StdDev)
+        // Consistency Machine
         let consistencyMachine: any = null;
+        const consistentCandidates = Object.values(playerStats).filter(s => s.games >= (period === 'WEEKLY' ? 3 : 10) && s.scores.length > 0);
+
         let lowestStdDev = 999;
         const calcStdDev = (arr: number[]) => {
             const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -799,20 +998,13 @@ export class RankingService {
             return Math.sqrt(variance);
         };
 
-        for (const p of validStats) {
-            const stdDev = calcStdDev(p.scores);
-            if (stdDev < lowestStdDev && p.games >= 5) { // Minimum games for consistency
-                lowestStdDev = stdDev;
-                consistencyMachine = { ...p.player, value: stdDev.toFixed(1), label: 'Desvio Padrão' };
+        for (const p of consistentCandidates) {
+            const std = calcStdDev(p.scores);
+            if (std < lowestStdDev) {
+                lowestStdDev = std;
+                consistencyMachine = { ...p.player, value: std.toFixed(1), label: 'Desvio Padrão' };
             }
         }
-
-        // Lane Bully (Avg Diff @ 15) - Requires aggregating diffs.
-        // Since we don't have diffs in `scores` loop easily without extra query or complex type, skipping for now or approximating?
-        // Wait, I added `goldDiffAt15` to metrics in ingest. But only for NEW matches.
-        // Logic: Calculate Avg Diff for players.
-        // We need another loop or integrate into previous loop.
-        // Let's skip complex aggregation that requires re-looping strictly.
 
         return {
             pentaKing,
@@ -820,24 +1012,20 @@ export class RankingService {
             farmMachine,
             objectiveKing,
             damageEfficient,
-            consistencyMachine
+            consistencyMachine,
+            // New
+            torreDemolidora,
+            soloClutch,
+            costasSeguras,
+            earlyTyrant,
+            lateDemon,
+            jungleGod,
+            macroPerfect
         };
     }
 
     /**
      * Hall of Shame (Contextual)
-     * - Low Damage (Ignoring Utility, > 15min)
-     * - Mão de Alface (Low Conversion K / (K+A))
-     */
-    /**
-     * Hall of Shame (Contextual Lowlights)
-     * - Farmador Fantasma (High CS, Low KP, Low Obj)
-     * - KP Baixo (Sumido)
-     * - Vision Negligente (Low Vision Score/Min)
-     * - Throw Master (High Midgame KDA, Low Endgame KDA + Loss)
-     * - Entrega Premium (Death near objective spawn) --> Hard to calc without timeline data. Skip or simplify.
-     * - Low Damage (Existing)
-     * - Mão de Alface (Existing)
      */
     async getHallOfShame(queueType: 'SOLO' | 'FLEX' = 'SOLO', period: 'WEEKLY' | 'MONTHLY' | 'GENERAL' = 'GENERAL') {
         const now = new Date();
@@ -870,7 +1058,7 @@ export class RankingService {
         let alface: any = null;
         let lowestConversion = 1.0;
 
-        let ghostFarmer: any = null; // Farmador Fantasma
+        let ghostFarmer: any = null; // Farmador Fantasma - This was replaced by farmLimbo
         let ghostScore = -1; // Higher is worse
 
         let visionNegligente: any = null;
@@ -879,22 +1067,53 @@ export class RankingService {
         let sumido: any = null;
         let lowestKp = 1.0;
 
+        // New Hall of Shame
+        let sonecaBaron: any = null; // Ignora objetivos
+        let sonecaScore = -1;
+
+        let gpsQuebrado: any = null; // Anda mt faz pouco (Low KP/Dmg in long game)
+        let gpsScore = -1;
+
+        let killCollector: any = null; // Kills sem torre
+        let collectorScore = -1;
+
+        let farmLimbo: any = null; // CS alto, KP baixo, Derrota
+        let limboScore = -1;
+
+        let throwingStation: any = null; // Gold Diff High -> Loss
+        let throwScore = -1;
+
+        let soloDoador: any = null; // Mortes Solo
+        let doadorScore = -1;
+
+        let telaPreta: any = null; // Tempo morto
+        let telaScore = -1;
+
+        let moedaBronze: any = null; // Score baixo + vitoria
+        let bronzeScore = 999;
+
+        let dragonAlegria: any = null; // JG 0 Drakes vs 4
+        let dragonScore = -1;
+
         for (const s of scores) {
             const metrics = s.metrics as any;
+            const challenges = metrics.challenges || {};
             const durationMin = s.match.gameDuration / 60;
+            const participation = s.kills + s.assists;
+            const totalKills = s.kills + s.assists + s.deaths; // loose approx of team kills if we don't have it? no metrics.kp is accurate.
+            const kp = Number(metrics?.challenges?.killParticipation || 0);
 
             // 1. Low Damage (Existing)
             if (s.lane !== 'UTILITY' && s.match.gameDuration > 900) {
                 const dmg = Number(metrics?.totalDamage || 999999);
                 if (dmg < minDmgRecord && dmg > 0) {
                     minDmgRecord = dmg;
-                    lowDmg = { ...s.player, value: dmg, label: 'Dano Total', matchId: s.matchId, champion: s.championName };
+                    lowDmg = { ...s.player, value: Number(dmg).toLocaleString(), label: 'Dano Total', matchId: s.matchId, champion: s.championName };
                 }
             }
 
             // 2. Mão de Alface (Existing)
-            const participation = s.kills + s.assists;
-            if (participation > 10) {
+            if (participation > 10 && s.lane !== 'UTILITY') { // Exclude Supports
                 const conversion = s.kills / participation;
                 if (conversion < lowestConversion) {
                     lowestConversion = conversion;
@@ -919,41 +1138,103 @@ export class RankingService {
                 }
             }
 
-            // 4. Farmador Fantasma (High CS, Low KP, Low Obj)
-            // roles: MID, ADC, TOP
+            // 4. Farmador Fantasma (High CS, Low KP, Low Obj) - Legacy, folding into Farm No Limbo or keeping?
+            // Replacing with "Farm no Limbo" as requested (Farm decente + derrota por macro)
             if (['TOP', 'MIDDLE', 'BOTTOM'].includes(s.lane) && s.match.gameDuration > 1500 && !s.isVictory) {
                 const cspm = Number(metrics?.cspm || 0);
-                const kp = Number(metrics?.kp || 0); // Engine calculates KP ratio, we need raw KP here?
-                // Wait, metrics.kp in engine is ratio vs opponent often, or raw?
-                // In ranking service ingestion: `kp: kp` where `kp = (p.kills + p.assists) / teamKills`. Correct.
-
-                if (cspm > 7.0 && kp < 0.25) {
-                    // Score = CSPM * (1 - KP) -> Higher is "better" at being a ghost
-                    const score = cspm * (1 - kp);
-                    if (score > ghostScore) {
-                        ghostScore = score;
-                        ghostFarmer = { ...s.player, value: `${cspm.toFixed(1)} CS/min`, label: 'Farmador Fantasma', matchId: s.matchId, champion: s.championName, detail: `KP: ${(kp * 100).toFixed(0)}%` };
+                // Farm no Limbo: High CS, Low KP, Loss
+                if (cspm > 7.0 && kp < 0.3) {
+                    const score = cspm * (1 - kp); // Higher is "better" candidate
+                    if (score > limboScore) {
+                        limboScore = score;
+                        farmLimbo = { ...s.player, value: `${cspm.toFixed(1)} CS/min`, label: 'Farm no Limbo', matchId: s.matchId, champion: s.championName, detail: `KP: ${(kp * 100).toFixed(0)}%` };
                     }
                 }
             }
 
-            // 5. Sumido (Lowest KP)
-            // Filter: > 20 min game
+            // 5. Sumido -> Missão Solo Queue
             if (s.match.gameDuration > 1200) {
-                const kp = Number(metrics?.kp || 1.0);
                 if (kp < lowestKp && kp >= 0) {
                     lowestKp = kp;
                     sumido = { ...s.player, value: (kp * 100).toFixed(0) + '%', label: 'Participação (KP)', matchId: s.matchId, champion: s.championName };
                 }
             }
+
+            // NEW SHAME INSIGHTS
+
+            // 6. Soneca do Baron (JG farming during obj?) - Hard to prove "during", but Low Obj Participation vs Game Duration
+            if (s.lane === 'JUNGLE' && s.match.gameDuration > 1500 && !s.isVictory) {
+                const objs = (challenges.dragonTakedowns || 0) + (challenges.baronTakedowns || 0);
+                if (objs === 0) {
+                    sonecaBaron = { ...s.player, value: '0', label: 'Objetivos em 25m+', matchId: s.matchId, champion: s.championName };
+                }
+            }
+
+            // 7. Kill Collector (Kills > 10, Tower Dmg < 1000, Loss)
+            if (s.kills > 10 && !s.isVictory) {
+                const towerDmg = Number(metrics?.damageDealtToBuildings || 0);
+                if (towerDmg < 1000) {
+                    // Higher kills = worse collector
+                    if (s.kills > collectorScore) {
+                        collectorScore = s.kills;
+                        killCollector = { ...s.player, value: s.kills, label: 'Kills sem Objetivo', matchId: s.matchId, champion: s.championName, detail: `${towerDmg.toFixed(0)} Dano Torre` };
+                    }
+                }
+            }
+
+            // 8. Throwing Station (Gold Lead @ 15 > 2000 -> Loss)
+            if (!s.isVictory && (challenges.goldDiffAt15 || 0) > 2000) {
+                const diff = challenges.goldDiffAt15;
+                if (diff > throwScore) {
+                    throwScore = diff;
+                    throwingStation = { ...s.player, value: Number(diff).toFixed(0), label: 'Ouro Jogado Fora', matchId: s.matchId, champion: s.championName, detail: 'Vantagem @15 perdida' };
+                }
+            }
+
+            // 9. Solo Doador (High Deaths, Low KP - "Entregando")
+            // Differs from "Sumido" (Low KP). This is "Feeder".
+            // Deaths > 8, KP < 30%
+            if (s.deaths > 8 && kp < 0.3) {
+                const ratio = s.deaths / (kp + 0.1);
+                if (ratio > doadorScore) {
+                    doadorScore = ratio;
+                    soloDoador = { ...s.player, value: `${s.deaths} Mortes`, label: 'Solo Doador', matchId: s.matchId, champion: s.championName, detail: `KP: ${(kp * 100).toFixed(0)}%` };
+                }
+            }
+
+            // 10. Tempo de Tela Preta (> 20% dead)
+            const timeDead = Number(metrics.totalTimeSpentDead || 0);
+            if (timeDead > 0) {
+                const deadRatio = timeDead / s.match.gameDuration;
+                if (deadRatio > 0.20 && deadRatio > telaScore) {
+                    telaScore = deadRatio;
+                    telaPreta = { ...s.player, value: `${(deadRatio * 100).toFixed(0)}%`, label: 'Tempo Morto', matchId: s.matchId, champion: s.championName };
+                }
+            }
+
+            // 11. Moeda de Bronze (Win with low score)
+            if (s.isVictory && s.matchScore < 40) {
+                if (s.matchScore < bronzeScore) {
+                    bronzeScore = s.matchScore;
+                    moedaBronze = { ...s.player, value: s.matchScore, label: 'Carregado (Score)', matchId: s.matchId, champion: s.championName };
+                }
+            }
+
         }
 
         return {
             lowDmg,
             alface,
-            ghostFarmer,
             visionNegligente,
-            sumido
+            sumido,
+            // New
+            sonecaBaron,
+            killCollector,
+            farmLimbo,
+            throwingStation,
+            soloDoador,
+            telaPreta,
+            moedaBronze
         };
     }
 }

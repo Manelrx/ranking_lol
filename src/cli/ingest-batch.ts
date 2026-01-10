@@ -203,6 +203,9 @@ export async function runIngestBatch() {
                                 visionScore: pData.visionScore || 0,
                                 goldEarned: pData.goldEarned || 0,
                                 totalTimePlayed: pData.timePlayed || 0,
+                                totalTimeSpentDead: pData.totalTimeSpentDead || 0, // NEW
+                                damageDealtToBuildings: pData.damageDealtToBuildings || 0, // NEW
+                                turretPlatesTaken: (pData as any).challenges?.turretPlatesTaken || 0, // NEW
                                 firstBloodKill: (pData as any).firstBloodKill || false,
                                 challenges: {
                                     goldDiffAt15: pData.challenges?.goldDiffAt15 || 0,
@@ -210,7 +213,13 @@ export async function runIngestBatch() {
                                     killParticipation: pData.challenges?.killParticipation || 0,
                                     dragonTakedowns: pData.challenges?.dragonTakedowns || 0,
                                     baronTakedowns: pData.challenges?.baronTakedowns || 0,
-                                    teamDamagePercentage: pData.challenges?.teamDamagePercentage || 0
+                                    riftHeraldTakedowns: pData.challenges?.riftHeraldTakedowns || 0, // NEW
+                                    teamDamagePercentage: pData.challenges?.teamDamagePercentage || 0,
+                                    soloKills: pData.challenges?.soloKills || 0, // NEW
+                                    saveAllyFromDeath: pData.challenges?.saveAllyFromDeath || 0, // NEW
+                                    enemyJungleMonsterKills: pData.challenges?.enemyJungleMonsterKills || 0, // NEW
+                                    controlWardsPlaced: pData.challenges?.controlWardsPlaced || 0, // NEW
+                                    perfectGame: pData.challenges?.perfectGame || 0 // NEW
                                 }
                             } as any,
                             ratios: result.ratios

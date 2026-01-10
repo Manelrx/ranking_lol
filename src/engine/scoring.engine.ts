@@ -35,6 +35,7 @@ export interface Participant {
     visionScore: number;
     timePlayed: number; // Seconds
     totalTimeSpentDead: number;
+    damageDealtToBuildings: number; // NEW - For Insights
 
     // Team Stats (for KP)
     // You might need to derive team kills from the MatchDTO usually, 
@@ -46,6 +47,12 @@ export interface Participant {
         dragonTakedowns?: number;
         baronTakedowns?: number;
         riftHeraldTakedowns?: number;
+        turretPlatesTaken?: number; // NEW
+        soloKills?: number; // NEW
+        saveAllyFromDeath?: number; // NEW
+        enemyJungleMonsterKills?: number; // NEW
+        controlWardsPlaced?: number; // NEW
+        perfectGame?: number; // NEW
         [key: string]: any;
     };
     turretKills?: number;
