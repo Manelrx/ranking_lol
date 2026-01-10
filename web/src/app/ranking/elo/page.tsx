@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-// import { useSearchParams } from "next/navigation"; // Removed
 import { getSeasonRanking, RankingEntry } from "@/lib/api";
-import { RankingTable } from "@/components/RankingTable";
-import { Tabs } from "@/components/ui/Tabs";
+// import { RankingTable } from "@/components/RankingTable";
 import { Card } from "@/components/ui/Card";
-import { Trophy, Medal, Crown } from "lucide-react";
+import { ProfileImage } from "@/components/ui/ProfileImage";
+import {
+    Trophy, Medal, Crown, Swords, TreeDeciduous, Zap, Crosshair, Shield, Globe, Layers
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQueue } from "@/contexts/QueueContext"; // Added
+import { useQueue } from "@/contexts/QueueContext";
 
-// Defined Tiers for Tabs
+// --- Configuration & Constants ---
+
 const TIERS = [
-    // ... (TIERS array remains same)
     { id: "ALL", label: "Todos" },
     { id: "CHALLENGER", label: "Challenger" },
     { id: "GRANDMASTER", label: "Grandmaster" },
@@ -22,11 +23,25 @@ const TIERS = [
     { id: "PLATINUM", label: "Platinum" },
     { id: "GOLD", label: "Gold" },
     { id: "SILVER", label: "Silver" },
-    { id: "BRONZE", label: "Bronze" },
-    { id: "IRON", label: "Iron" },
+    //    { id: "BRONZE", label: "Bronze" },
+    //    { id: "IRON", label: "Iron" },
 ];
 
-// ... (getEloValue helper remains same)
+const LANES = [
+    { id: "TOP", label: "Top", icon: Swords, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
+    { id: "JUNGLE", label: "Jungle", icon: TreeDeciduous, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+    { id: "MID", label: "Mid", icon: Zap, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
+    { id: "BOT", label: "Bot", icon: Crosshair, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+    { id: "SUPPORT", label: "Support", icon: Shield, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+];
+
+const MODES = [
+    { id: "TIER", label: "Por Elo", icon: Layers },
+    { id: "GLOBAL", label: "Global", icon: Globe },
+    { id: "LANE", label: "Por Rota", icon: Swords }, // Or another icon representing specialization
+];
+
+// Helper to calculate raw Elo value for sorting
 const getEloValue = (p: RankingEntry) => {
     const tierScores: Record<string, number> = {
         CHALLENGER: 90000, GRANDMASTER: 80000, MASTER: 70000,
@@ -34,144 +49,269 @@ const getEloValue = (p: RankingEntry) => {
         GOLD: 30000, SILVER: 20000, BRONZE: 10000, IRON: 0
     };
     const rankScores: Record<string, number> = { I: 300, II: 200, III: 100, IV: 0, "": 0 };
-
-    // Base Tier Score + Rank Score + LP
     return (tierScores[p.tier] || 0) + (rankScores[p.rankDivision] || 0) + p.lp;
 };
 
-export default function EloRankingPage() {
-    // const searchParams = useSearchParams(); // Removed
-    // const queue = ... // Removed
-    const { queueType } = useQueue(); // Added
+export default function RankingPage() {
+    const { queueType } = useQueue();
 
+    // --- State ---
     const [players, setPlayers] = useState<RankingEntry[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState("ALL");
-    const [viewMode, setViewMode] = useState<"TIER" | "POINTS">("TIER");
 
+    // View Config
+    const [viewMode, setViewMode] = useState<"TIER" | "GLOBAL" | "LANE">("TIER");
+
+    // Filters
+    const [activeTier, setActiveTier] = useState("ALL");
+    const [activeLane, setActiveLane] = useState("MID"); // Default to Mid or Top
+
+    // --- Data Fetching ---
     useEffect(() => {
         setLoading(true);
-        // Using getSeasonRanking to get everyone and filter client-side for "Instant" feel
-        getSeasonRanking(queueType).then((res) => { // Updated to queueType
+        getSeasonRanking(queueType).then((res) => {
             setPlayers(res);
             setLoading(false);
         });
-    }, [queueType]); // Updated dependency
+    }, [queueType]);
 
-    const filteredPlayers = useMemo(() => {
-        if (viewMode === "POINTS") {
-            // Sort by Total Score Descending
-            return [...players].sort((a, b) => b.totalScore - a.totalScore);
+    // --- Logic: Memoized Sorting & Filtering ---
+    const topData = useMemo(() => {
+        let processed = [...players];
+
+        // 1. Filter Logic
+        if (viewMode === "TIER" && activeTier !== "ALL") {
+            processed = processed.filter(p => p.tier === activeTier);
         }
 
-        // Mode TIER: Sort by Elo Value
-        let sorted = [...players].sort((a, b) => getEloValue(b) - getEloValue(a));
+        // 2. Sort Logic
+        if (viewMode === "LANE") {
+            // Sort by specific LANE score, NOT total score
+            processed.sort((a, b) => {
+                const scoreA = a.laneScores?.[activeLane] || 0;
+                const scoreB = b.laneScores?.[activeLane] || 0;
+                return scoreB - scoreA;
+            });
+            // Filter out players with 0 score in this lane (optional, keeps list clean)
+            processed = processed.filter(p => (p.laneScores?.[activeLane] || 0) > 0);
 
-        if (activeTab === "ALL") return sorted;
-        return sorted.filter(p => p.tier === activeTab);
-    }, [players, activeTab, viewMode]);
+        } else if (viewMode === "GLOBAL") {
+            // Sort by Total Score
+            processed.sort((a, b) => b.totalScore - a.totalScore);
 
-    const topPlayer = useMemo(() => {
-        if (filteredPlayers.length > 0) return filteredPlayers[0];
-        return null;
-    }, [filteredPlayers]);
+        } else {
+            // TIER: Sort by Elo Value (LP)
+            processed.sort((a, b) => getEloValue(b) - getEloValue(a));
+        }
+
+        return processed;
+    }, [players, viewMode, activeTier, activeLane]);
+
+    const topPlayer = topData.length > 0 ? topData[0] : null;
+
+    // --- Render Helpers ---
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-700">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-8 animate-in fade-in duration-700 pb-12">
+
+            {/* Header with Mode Switcher */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
                 <div>
-                    <h2 className="text-3xl font-bold text-white tracking-tight flex items-center gap-2">
-                        <Trophy className="w-8 h-8 text-yellow-500" />
-                        Ranking {viewMode === "TIER" ? "por Elo" : "Global"}
+                    <h2 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
+                        <Trophy className="w-10 h-10 text-yellow-500" />
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                            Ranking da Temporada
+                        </span>
                     </h2>
-                    <p className="text-gray-400 mt-1">
-                        {viewMode === "TIER"
-                            ? "Classificação detalhada por divisões competitivas."
-                            : "Classificação geral baseada no RiftScore."}
+                    <p className="text-gray-400 mt-2 text-lg">
+                        {viewMode === "TIER" && "Classificação oficial baseada em PDL e Elo."}
+                        {viewMode === "GLOBAL" && "Os maiores pontuadores do RiftScore geral."}
+                        {viewMode === "LANE" && `Os reis da rota ${LANES.find(l => l.id === activeLane)?.label}.`}
                     </p>
                 </div>
 
-                <div className="flex flex-col gap-4 w-full md:w-auto items-end">
-                    {/* View Mode Toggle */}
-                    <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 backdrop-blur-sm">
+                {/* Mode Tabs (Premium Look) */}
+                <div className="flex flex-col sm:flex-row gap-4 bg-black/40 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl">
+                    {MODES.map((mode) => (
                         <button
-                            onClick={() => setViewMode("TIER")}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === "TIER"
-                                ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
-                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                            key={mode.id}
+                            onClick={() => setViewMode(mode.id as any)}
+                            className={`relative px-6 py-3 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 ${viewMode === mode.id ? "text-white shadow-lg shadow-emerald-900/20" : "text-gray-400 hover:text-white"
                                 }`}
                         >
-                            Por Elo
+                            {viewMode === mode.id && (
+                                <motion.div
+                                    layoutId="activeModeTab"
+                                    className="absolute inset-0 bg-emerald-600 rounded-xl"
+                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                />
+                            )}
+                            <span className="relative z-10 flex items-center gap-2">
+                                <mode.icon className="w-4 h-4" />
+                                {mode.label}
+                            </span>
                         </button>
-                        <button
-                            onClick={() => setViewMode("POINTS")}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === "POINTS"
-                                ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
-                                : "text-gray-400 hover:text-white hover:bg-white/5"
-                                }`}
-                        >
-                            Por Pontos
-                        </button>
-                    </div>
-
-                    {/* Tabs Component (Only in TIER mode) */}
-                    {viewMode === "TIER" && (
-                        <Tabs
-                            tabs={TIERS}
-                            activeTab={activeTab}
-                            onChange={setActiveTab}
-                            className="w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar"
-                        />
-                    )}
+                    ))}
                 </div>
             </div>
 
+            {/* Sub-Filters (Tier Tabs OR Lane Selector) */}
+            <div className="fresnel-container min-h-[60px]">
+                <AnimatePresence mode="wait">
+                    {viewMode === "TIER" && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="flex overflow-x-auto pb-4 no-scrollbar gap-2"
+                        >
+                            {TIERS.map((tier) => (
+                                <button
+                                    key={tier.id}
+                                    onClick={() => setActiveTier(tier.id)}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border ${activeTier === tier.id
+                                        ? "bg-white text-black border-white"
+                                        : "bg-white/5 text-gray-400 border-white/5 hover:bg-white/10 hover:border-white/20"
+                                        }`}
+                                >
+                                    {tier.label}
+                                </button>
+                            ))}
+                        </motion.div>
+                    )}
+
+                    {viewMode === "LANE" && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="flex flex-wrap gap-3 justify-center md:justify-start"
+                        >
+                            {LANES.map((lane) => {
+                                const isActive = activeLane === lane.id;
+                                return (
+                                    <button
+                                        key={lane.id}
+                                        onClick={() => setActiveLane(lane.id)}
+                                        className={`group relative px-6 py-4 rounded-xl border flex flex-col items-center gap-2 transition-all duration-300 min-w-[100px] ${isActive
+                                            ? `${lane.bg} ${lane.border} ring-2 ring-white/20`
+                                            : "bg-black/20 border-white/5 hover:bg-white/5 hover:border-white/10"
+                                            }`}
+                                    >
+                                        <lane.icon className={`w-6 h-6 ${isActive ? lane.color : "text-gray-500 group-hover:text-gray-300"}`} />
+                                        <span className={`text-xs font-bold uppercase tracking-wider ${isActive ? "text-white" : "text-gray-500"}`}>
+                                            {lane.label}
+                                        </span>
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="activeLaneIndicator"
+                                                className={`absolute inset-0 rounded-xl border-2 ${lane.border.replace('border-', 'border-')}`}
+                                            />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+
             {loading ? (
-                <div className="space-y-4">
-                    <div className="h-48 w-full bg-white/5 rounded-2xl animate-pulse" />
-                    <div className="h-96 w-full bg-white/5 rounded-2xl animate-pulse" />
+                <div className="space-y-6">
+                    <div className="h-64 w-full bg-white/5 rounded-3xl animate-pulse" />
+                    <div className="space-y-3">
+                        {[1, 2, 3].map(i => <div key={i} className="h-20 w-full bg-white/5 rounded-xl animate-pulse" />)}
+                    </div>
                 </div>
             ) : (
-                <div className="space-y-6">
+                <div className="space-y-10">
 
-                    {/* Top 1 Highlight Card (Only if players exist) */}
+                    {/* HERO SECTION: The King */}
                     <AnimatePresence mode="wait">
                         {topPlayer && (
                             <motion.div
-                                key={topPlayer.puuid + activeTab + viewMode}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                transition={{ duration: 0.3 }}
+                                key={topPlayer.puuid + viewMode + activeLane + activeTier}
+                                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                                transition={{ type: "spring", duration: 0.6 }}
                             >
-                                <Card variant="glass" className="relative overflow-hidden border-yellow-500/20 bg-gradient-to-r from-yellow-500/10 to-transparent">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
+                                <Card variant="glass" className="relative overflow-hidden group border-yellow-500/30">
+                                    {/* Dynamic Background Gradient */}
+                                    <div className={`absolute inset-0 bg-gradient-to-r opacity-20 transition-colors duration-500 ${viewMode === "LANE"
+                                        ? (LANES.find(l => l.id === activeLane)?.bg?.replace('/10', '/30') || "from-yellow-600/20")
+                                        : "from-yellow-600/20 via-orange-500/10 to-transparent"
+                                        }`} />
 
-                                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 p-2">
+                                    <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-500/10 blur-[100px] rounded-full translate-x-1/3 -translate-y-1/3" />
+
+                                    <div className="relative z-10 p-8 flex flex-col md:flex-row items-center gap-8">
+
+                                        {/* Avatar / Rank Insignia */}
                                         <div className="relative">
-                                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-600 to-yellow-900 flex items-center justify-center border-4 border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.3)]">
-                                                <Crown className="w-10 h-10 text-white" />
+                                            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-yellow-400 to-amber-700 p-1 shadow-[0_0_40px_rgba(245,158,11,0.3)]">
+                                                <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden border-4 border-black">
+                                                    {/* Profile Icon Placeholder or Real Image */}
+                                                    {/* Profile Icon with Fallback */}
+                                                    <div className="w-full h-full relative">
+                                                        <ProfileImage
+                                                            profileIconId={topPlayer.profileIconId}
+                                                            className="w-full h-full"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-black text-xs font-bold px-2 py-0.5 rounded-full shadow-lg border border-yellow-400">
+                                            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-600 to-amber-600 text-white text-xs md:text-sm font-bold px-4 py-1 rounded-full shadow-lg border border-yellow-400 whitespace-nowrap">
                                                 TOP 1
                                             </div>
                                         </div>
 
-                                        <div className="text-center md:text-left flex-1">
-                                            <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-widest mb-1">
-                                                Líder {viewMode === "TIER" ? (activeTab === "ALL" ? "Geral" : activeTab) : "Global"}
-                                            </h3>
-                                            <div className="text-3xl font-bold text-white mb-1">
-                                                {topPlayer.gameName}
+                                        {/* Info */}
+                                        <div className="flex-1 text-center md:text-left">
+                                            <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                                                <span className="text-yellow-500 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                                                    {viewMode === "LANE" && <Crown className="w-4 h-4" />}
+                                                    {viewMode === "TIER" ? `Líder ${activeTier === 'ALL' ? 'Geral' : activeTier}` :
+                                                        viewMode === "LANE" ? `Rei do ${LANES.find(l => l.id === activeLane)?.label}` :
+                                                            "Líder Global"}
+                                                </span>
                                             </div>
-                                            <div className="text-sm text-gray-400 font-mono">
-                                                {topPlayer.totalScore.toFixed(0)} Pontos • {topPlayer.winRate} Winrate
+                                            <h3 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">
+                                                {topPlayer.gameName}
+                                                <span className="text-gray-500 text-2xl font-normal ml-2">#{topPlayer.tagLine}</span>
+                                            </h3>
+
+                                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 md:gap-8 text-sm md:text-lg text-gray-300 font-medium">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                                    {viewMode === "LANE"
+                                                        ? `${(topPlayer.laneScores?.[activeLane] || 0)} Pontos na Rota`
+                                                        : `${topPlayer.totalScore.toFixed(0)} Pontos Totais`
+                                                    }
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                                    {topPlayer.winRate} Winrate
+                                                </div>
+                                                {viewMode === "TIER" && (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full bg-purple-500" />
+                                                        {topPlayer.tier} {topPlayer.rankDivision} - {topPlayer.lp} PDL
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
-                                        <div className="hidden md:block pr-8">
-                                            <Medal className="w-16 h-16 text-white/5" />
+                                        {/* Big Icon Background */}
+                                        <div className="hidden xl:block absolute right-10 top-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
+                                            {viewMode === "LANE" ? (
+                                                (() => {
+                                                    const Icon = LANES.find(l => l.id === activeLane)?.icon || Crown;
+                                                    return <Icon className="w-64 h-64" />;
+                                                })()
+                                            ) : (
+                                                <Trophy className="w-64 h-64" />
+                                            )}
                                         </div>
                                     </div>
                                 </Card>
@@ -180,7 +320,95 @@ export default function EloRankingPage() {
                     </AnimatePresence>
 
                     {/* Table */}
-                    <RankingTable data={filteredPlayers} />
+                    <div className="bg-black/20 rounded-3xl border border-white/5 overflow-hidden backdrop-blur-sm">
+
+                        {/* Custom Table Header */}
+                        <div className="grid grid-cols-12 gap-4 p-4 border-b border-white/10 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                            <div className="col-span-1 text-center">#</div>
+                            <div className="col-span-4 md:col-span-3 lg:col-span-3">Jogador</div>
+                            <div className="col-span-3 md:col-span-2 lg:col-span-2">Elo</div>
+                            <div className="col-span-4 md:col-span-6 lg:col-span-6 text-right pr-4">
+                                {viewMode === "LANE" ? "Pontuação da Rota" : "Pontuação Global"}
+                            </div>
+                        </div>
+
+                        {/* List Items */}
+                        <div className="divide-y divide-white/5">
+                            {topData.slice(0, 50).map((player, index) => (
+                                <motion.div
+                                    key={player.puuid}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    whileInView={{ opacity: 1, x: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ duration: 0.3, delay: index * 0.03 }} // Stagger Effect
+                                    className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors group cursor-default"
+                                >
+                                    {/* Rank */}
+                                    <div className="col-span-1 flex justify-center">
+                                        <div className={`w-8 h-8 flex items-center justify-center rounded-lg font-bold ${index === 0 ? "bg-yellow-500 text-black shadow-lg shadow-yellow-500/20" :
+                                            index === 1 ? "bg-gray-300 text-black" :
+                                                index === 2 ? "bg-orange-700 text-white" :
+                                                    "text-gray-500 bg-white/5"
+                                            }`}>
+                                            {index + 1}
+                                        </div>
+                                    </div>
+
+                                    {/* Player Info */}
+                                    <div className="col-span-4 md:col-span-3 lg:col-span-3 flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-black border border-white/10 overflow-hidden">
+                                            <ProfileImage
+                                                profileIconId={player.profileIconId}
+                                                className="w-full h-full"
+                                            />
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
+                                                {player.gameName}
+                                            </div>
+                                            <div className="text-xs text-gray-500">#{player.tagLine}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Tier Info */}
+                                    <div className="col-span-3 md:col-span-2 lg:col-span-2">
+                                        <div className="flex flex-col">
+                                            <span className={`text-xs font-bold ${player.tier === "CHALLENGER" ? "text-yellow-400" :
+                                                player.tier === "GRANDMASTER" ? "text-red-400" :
+                                                    player.tier === "MASTER" ? "text-purple-400" :
+                                                        "text-gray-300"
+                                                }`}>
+                                                {player.tier} {player.rankDivision}
+                                            </span>
+                                            <span className="text-[10px] text-gray-500">{player.lp} LP</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Score Info (Dynamic) */}
+                                    <div className="col-span-4 md:col-span-6 lg:col-span-6 text-right pr-4">
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-xl font-black text-white group-hover:scale-110 transition-transform bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-emerald-200">
+                                                {viewMode === "LANE"
+                                                    ? (player.laneScores?.[activeLane] || 0).toLocaleString()
+                                                    : player.totalScore.toFixed(0)
+                                                }
+                                            </span>
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500">
+                                                {viewMode === "LANE" ? "Pontos de Lane" : "RiftScore"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+
+                        {topData.length === 0 && (
+                            <div className="p-12 text-center text-gray-500">
+                                Nenhum jogador encontrado para este filtro.
+                            </div>
+                        )}
+                    </div>
+
                 </div>
             )}
         </div>

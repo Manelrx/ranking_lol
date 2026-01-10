@@ -32,6 +32,13 @@ export interface RankingEntry {
         points: number;
         level: number;
     };
+    // New: Lane Scores
+    laneScores: Record<string, number>;
+    skin?: {
+        name: string;
+        splashUrl: string;
+        loadingUrl: string;
+    };
 }
 
 export interface EloRanking {
@@ -151,8 +158,12 @@ export async function getRankingByElo(queue: 'SOLO' | 'FLEX', tier: string, limi
     return res.json();
 }
 
-export async function getPdlGainRanking(queue: 'SOLO' | 'FLEX' = 'SOLO', limit: number = 20, period: string = 'GENERAL'): Promise<PdlGainEntry[]> {
-    const res = await fetch(`${API_URL}/ranking/pdl-gain?queue=${queue}&limit=${limit}&period=${period}`);
+export async function getPdlGainRanking(queue: 'SOLO' | 'FLEX' = 'SOLO', limit: number = 20, startDate?: string): Promise<PdlGainEntry[]> {
+    let url = `${API_URL}/ranking/pdl-gain?queue=${queue}&limit=${limit}`;
+    if (startDate) {
+        url += `&startDate=${startDate}`;
+    }
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch PDL ranking');
     return res.json();
 }

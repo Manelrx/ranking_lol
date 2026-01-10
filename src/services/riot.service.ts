@@ -132,4 +132,41 @@ export class RiotService {
         const url = `${this.platformUrl}/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=${count}`;
         return this.executeRequest<any[]>(url);
     }
+
+    /**
+     * Get Latest Skin for Champion (Data Dragon)
+     * Returns the splash URL of the most recent skin (last in the list)
+     */
+    async getLatestSkin(championName: string): Promise<{ name: string; splashUrl: string; loadingUrl: string } | null> {
+        try {
+            // Normalize Name (e.g. Wukong -> MonkeyKing)
+            let cName = championName;
+            if (cName === 'Wukong') cName = 'MonkeyKing';
+            if (cName === 'RenataGlasc') cName = 'Renata';
+
+            // Fetch Champion Data
+            // We use a fixed recent version or fetch standard
+            const version = '14.1.1'; // Ideally dynamic, but safe enough for now
+            const url = `https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion/${cName}.json`;
+
+            // Bypass rate limiter for DataDragon (It's a CDN)
+            const res = await axios.get(url);
+            const data = res.data.data[cName];
+
+            if (!data || !data.skins || data.skins.length === 0) return null;
+
+            // Get last skin (usually newest)
+            // Filter out "default" (num 0) if we want a skin, or just take the very last one
+            const skin = data.skins[data.skins.length - 1];
+
+            return {
+                name: skin.name,
+                splashUrl: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${cName}_${skin.num}.jpg`,
+                loadingUrl: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${cName}_${skin.num}.jpg`
+            };
+        } catch (e) {
+            console.error(`[RiotService] Failed to fetch skin for ${championName}`, e);
+            return null;
+        }
+    }
 }

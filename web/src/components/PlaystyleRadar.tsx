@@ -15,7 +15,7 @@ interface PlaystyleRadarProps {
 
 export function PlaystyleRadar({ playstyle, theme }: PlaystyleRadarProps) {
     const data = [
-        { subject: 'Combate', A: playstyle.combat, fullMark: 100 },
+        { subject: 'Performance', A: playstyle.combat, fullMark: 100 },
         { subject: 'Objetivos', A: playstyle.objectives, fullMark: 100 },
         { subject: 'Disciplina', A: playstyle.discipline, fullMark: 100 },
     ];
@@ -57,7 +57,7 @@ export function PlaystyleRadar({ playstyle, theme }: PlaystyleRadarProps) {
             {/* Legend/Score Summary */}
             <div className="flex justify-between w-full mt-2 px-4">
                 <div className="text-center">
-                    <div className="text-[10px] text-zinc-500 uppercase">Combate</div>
+                    <div className="text-[10px] text-zinc-500 uppercase">Performance</div>
                     <div className="text-sm font-bold text-white">{playstyle.combat}</div>
                 </div>
                 <div className="text-center">
