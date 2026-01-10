@@ -81,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-emerald-500/20 scrollbar-track-transparent scroll-smooth"
                     onScroll={handleScroll}
                 >
-                    <main className="pt-24 p-6 md:p-10 lg:p-12 max-w-[1600px] mx-auto w-full">
+                    <main className="pt-32 px-6 pb-6 md:px-10 md:pb-10 lg:px-12 lg:pb-12 max-w-[1600px] mx-auto w-full">
                         {children}
                     </main>
                 </div>
