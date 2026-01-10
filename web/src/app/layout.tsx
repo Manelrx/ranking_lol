@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import { Outfit, Inter } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
 });
 
 import { Suspense } from "react";
@@ -36,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#09090b] text-white`}
+        className={`${outfit.variable} ${inter.variable} antialiased bg-[#050505] text-white font-sans selection:bg-emerald-500/30 selection:text-emerald-200`}
       >
         <QueueProvider>
           <AppShell>

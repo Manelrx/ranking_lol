@@ -74,14 +74,14 @@ function PlayersContent() {
             {/* Header com Busca e Toggle */}
             <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold text-white tracking-tight">Jogadores</h2>
+                    <h2 className="text-3xl font-[family-name:var(--font-outfit)] font-bold text-white tracking-tight">Jogadores</h2>
                     <p className="text-gray-400">Diretório oficial do servidor ({players.length})</p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
                     <button
                         onClick={() => setShowAddModal(true)}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2 justify-center"
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-[family-name:var(--font-outfit)] font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2 justify-center"
                     >
                         <UserPlus className="w-4 h-4" />
                         Adicionar Invocador
@@ -106,13 +106,13 @@ function PlayersContent() {
                     <div className="bg-[#1a1c23] border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 relative">
                         <button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">x</button>
 
-                        <h3 className="text-xl font-bold text-white">Adicionar Invocador</h3>
+                        <h3 className="text-xl font-[family-name:var(--font-outfit)] font-bold text-white">Adicionar Invocador</h3>
                         <p className="text-sm text-gray-400">Insira o Riot ID e a senha de administrador para rastrear um novo jogador.</p>
 
                         <form onSubmit={handleAddPlayer} className="space-y-4 mt-4">
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="col-span-2 space-y-1">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Game Name</label>
+                                    <label className="text-xs font-[family-name:var(--font-outfit)] font-bold text-gray-500 uppercase">Game Name</label>
                                     <input
                                         required
                                         className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-indigo-500 outline-none"
@@ -122,7 +122,7 @@ function PlayersContent() {
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Tag</label>
+                                    <label className="text-xs font-[family-name:var(--font-outfit)] font-bold text-gray-500 uppercase">Tag</label>
                                     <input
                                         required
                                         className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-indigo-500 outline-none"
@@ -134,7 +134,7 @@ function PlayersContent() {
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Senha de Admin</label>
+                                <label className="text-xs font-[family-name:var(--font-outfit)] font-bold text-gray-500 uppercase">Senha de Admin</label>
                                 <input
                                     type="password"
                                     required
@@ -193,14 +193,14 @@ function PlayersContent() {
                                         ringColor={player.rank === 1 ? 'border-yellow-400 shadow-yellow-500/40' : undefined}
                                     />
 
-                                    <h3 className="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">
+                                    <h3 className="text-xl font-[family-name:var(--font-outfit)] font-bold text-white group-hover:text-indigo-400 transition-colors">
                                         {player.gameName}
                                     </h3>
                                     <span className="text-xs text-gray-500 font-mono mb-4">#{player.tagLine}</span>
 
                                     <div className="flex items-center gap-2 mb-6">
                                         <EloBadge tier={player.tier} rank={player.rankDivision} className="scale-90" />
-                                        <div className="text-sm font-bold text-gray-300">
+                                        <div className="text-sm font-[family-name:var(--font-outfit)] font-bold text-gray-300">
                                             {player.lp} <span className="text-[10px] text-gray-500 uppercase">PDL</span>
                                         </div>
                                     </div>
@@ -220,12 +220,12 @@ function PlayersContent() {
                                     {/* Stats Footer */}
                                     <div className="w-full grid grid-cols-2 gap-2 pt-4 border-t border-white/5">
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Score</span>
-                                            <span className="text-lg font-bold text-white">{player.totalScore.toFixed(0)}</span>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-[family-name:var(--font-outfit)] font-bold">Score</span>
+                                            <span className="text-lg font-[family-name:var(--font-outfit)] font-bold text-white">{player.totalScore.toFixed(0)}</span>
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Win Rate</span>
-                                            <span className={`text-lg font-bold ${parseFloat(player.winRate) >= 50 ? 'text-emerald-400' : 'text-gray-400'}`}>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-[family-name:var(--font-outfit)] font-bold">Win Rate</span>
+                                            <span className={`text-lg font-[family-name:var(--font-outfit)] font-bold ${parseFloat(player.winRate) >= 50 ? 'text-emerald-400' : 'text-gray-400'}`}>
                                                 {player.winRate}
                                             </span>
                                         </div>

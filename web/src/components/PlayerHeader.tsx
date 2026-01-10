@@ -64,9 +64,9 @@ export function PlayerHeader({
 
                     <div className="text-center md:text-left space-y-2">
                         <div className="flex items-center gap-3">
-                            <h1 className="text-5xl font-black text-white tracking-tighter flex items-center gap-2 drop-shadow-xl">
+                            <h1 className="text-5xl font-[family-name:var(--font-outfit)] font-black text-white tracking-tighter flex items-center gap-2 drop-shadow-xl">
                                 {gameName}
-                                <span className="text-2xl font-bold text-zinc-500 font-mono opacity-50">#{tagLine}</span>
+                                <span className="text-2xl font-bold text-zinc-500 font-[family-name:var(--font-outfit)] opacity-50">#{tagLine}</span>
                             </h1>
                             {/* Vitality Badge */}
                             {history && <VitalityBadge history={history} theme={theme} />}
@@ -102,10 +102,10 @@ export function PlayerHeader({
                 <div className="flex flex-col items-center md:items-end gap-2">
                     <EloBadge tier={tier} rank={rank} size="lg" />
                     <div className="flex items-baseline gap-1 mt-1">
-                        <span className={`text-4xl font-mono font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-b ${theme.gradients.text} filter drop-shadow-sm`}>
+                        <span className={`text-4xl font-[family-name:var(--font-outfit)] font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-b ${theme.gradients.text} filter drop-shadow-sm`}>
                             {lp}
                         </span>
-                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest opacity-70">PDL</span>
+                        <span className="text-xs font-[family-name:var(--font-outfit)] font-bold text-zinc-500 uppercase tracking-widest opacity-70">PDL</span>
                     </div>
                 </div>
             </div>

@@ -17,7 +17,7 @@ export function RankSnapshot({ players, trends }: RankSnapshotProps) {
         <section className="col-span-1 lg:col-span-8">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    <h3 className="text-xl font-bold text-white uppercase tracking-wider">Top 10 Atual</h3>
+                    <h3 className="text-xl font-[family-name:var(--font-outfit)] font-bold text-white uppercase tracking-wider">Top 10 Atual</h3>
                     <div className="h-px w-12 bg-white/10" />
                 </div>
                 <Link
@@ -71,7 +71,7 @@ export function RankSnapshot({ players, trends }: RankSnapshotProps) {
                                         />
                                     </div>
                                     <div className="min-w-0">
-                                        <div className="text-sm font-bold text-gray-200 group-hover:text-white truncate">
+                                        <div className="text-sm font-[family-name:var(--font-outfit)] font-bold text-gray-200 group-hover:text-white truncate">
                                             {player.gameName}
                                         </div>
                                         <div className="text-xs text-gray-600 truncate">

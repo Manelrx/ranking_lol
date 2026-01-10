@@ -26,7 +26,7 @@ export function TickerRow({ player, index }: TickerRowProps) {
         >
             {/* Rank */}
             <td className="p-4 text-center sticky left-0 bg-transparent">
-                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 font-mono text-xs text-gray-400">
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 font-[family-name:var(--font-outfit)] font-bold text-xs text-zinc-400">
                     {index + 1}
                 </div>
             </td>
@@ -36,11 +36,11 @@ export function TickerRow({ player, index }: TickerRowProps) {
                 <Link href={`/player/${player.puuid}`} className="flex items-center gap-3">
                     <PlayerAvatar profileIconId={player.profileIconId} size="sm" />
                     <div className="flex flex-col">
-                        <span className="font-bold text-white group-hover:text-emerald-400 transition-colors uppercase tracking-wider text-sm flex items-center gap-2">
+                        <span className="font-[family-name:var(--font-outfit)] font-bold text-white group-hover:text-emerald-400 transition-colors uppercase tracking-wider text-sm flex items-center gap-2">
                             {player.gameName}
                             {index < 3 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
                         </span>
-                        <span className="text-[10px] text-gray-500 font-mono">#{player.tagLine}</span>
+                        <span className="text-[10px] text-zinc-500 font-mono">#{player.tagLine}</span>
                     </div>
                 </Link>
             </td>
@@ -57,7 +57,7 @@ export function TickerRow({ player, index }: TickerRowProps) {
 
             {/* Gain (Price) */}
             <td className="p-4 text-right">
-                <div className={`text-lg font-bold font-mono tracking-tighter ${isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-gray-400'
+                <div className={`text-lg font-[family-name:var(--font-outfit)] font-bold tracking-tighter ${isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-zinc-400'
                     }`}>
                     {isPositive ? '+' : ''}
                     <CountUp end={player.pdlGain} duration={2} preserveValue />

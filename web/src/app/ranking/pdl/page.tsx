@@ -53,17 +53,17 @@ export default function PdlRankingPage() {
     const movers = data.length > 0 ? data.slice(1) : [];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-700 pb-20">
+        <div className="space-y-12 animate-in fade-in duration-700 pb-20">
             {/* Header Area */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-10">
                 <div>
-                    <h2 className="text-4xl font-bold text-white tracking-tighter flex items-center gap-3">
+                    <h2 className="text-4xl font-[family-name:var(--font-outfit)] font-bold text-white tracking-tighter flex items-center gap-3">
                         <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
                             <TrendingUp className="w-8 h-8 text-emerald-400" />
                         </div>
                         JOGADORES EM ALTA
                     </h2>
-                    <p className="text-gray-400 mt-2 font-mono text-sm max-w-lg">
+                    <p className="text-zinc-400 mt-2 font-mono text-sm max-w-lg">
                         Rastreamento em tempo real dos maiores ganhadores de PDL.
                         <span className="text-emerald-500"> Quem está subindo?</span>
                     </p>

@@ -29,7 +29,7 @@ export function WeeklyClimbers({ trends }: WeeklyClimbersProps) {
             {/* Header / Tabs */}
             <div className="flex items-center justify-between mb-2">
                 <div>
-                    <h3 className="text-lg font-black text-white uppercase italic leading-none flex items-center gap-2">
+                    <h3 className="text-lg font-[family-name:var(--font-outfit)] font-black text-white uppercase italic leading-none flex items-center gap-2">
                         {tab === 'winners' ? <Rocket size={18} className="text-emerald-500" /> : <Rewind size={18} className="text-red-500" />}
                         {tab === 'winners' ? 'Foguetes' : 'Foguetes de Ré'}
                     </h3>
@@ -98,7 +98,7 @@ export function WeeklyClimbers({ trends }: WeeklyClimbersProps) {
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-gray-200 truncate text-xs">{player.gameName}</h4>
+                            <h4 className="font-[family-name:var(--font-outfit)] font-bold text-gray-200 truncate text-xs">{player.gameName}</h4>
                             <div className="flex items-center gap-2 text-[10px] text-gray-500 font-mono">
                                 <span>{player.tier} {player.rank}</span>
                             </div>

@@ -90,7 +90,7 @@ export function HighlightsCarousel({ fame, shame }: HighlightsCarouselProps) {
     return (
         <section className="mb-12 overflow-hidden relative">
             <div className="flex items-center justify-between mb-6 px-1">
-                <h3 className="text-xl font-black text-white uppercase italic tracking-tighter flex items-center gap-3">
+                <h3 className="text-xl font-[family-name:var(--font-outfit)] font-black text-white uppercase italic tracking-tighter flex items-center gap-3">
                     <div className="w-1 h-6 bg-emerald-500 rounded-full" /> Stories da Rodada
                 </h3>
             </div>
@@ -178,7 +178,7 @@ function StoryCardComponent({ card }: { card: StoryCard }) {
                         <card.icon size={18} />
                     </div>
 
-                    <h4 className="text-2xl font-black text-white leading-none mb-1 drop-shadow-md">
+                    <h4 className="text-2xl font-[family-name:var(--font-outfit)] font-black text-white leading-none mb-1 drop-shadow-md">
                         {card.player.gameName}
                     </h4>
                     <p className="text-white/70 font-mono text-[10px] mb-3 uppercase tracking-wide">

@@ -15,10 +15,10 @@ export function WeeklySpotlight({ mvp, antiMvp }: WeeklySpotlightProps) {
         <section className="mb-24 overflow-hidden relative">
             <div className="flex items-end justify-between mb-8 px-4">
                 <div>
-                    <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter italic">
+                    <h2 className="text-3xl md:text-4xl font-[family-name:var(--font-outfit)] font-black text-white uppercase tracking-tighter italic">
                         Destaques da Semana
                     </h2>
-                    <p className="text-gray-400 font-mono text-sm mt-2">
+                    <p className="text-zinc-400 font-mono text-sm mt-2">
                         Quem brilhou e quem... tentou.
                     </p>
                 </div>
@@ -64,7 +64,7 @@ export function WeeklySpotlight({ mvp, antiMvp }: WeeklySpotlightProps) {
                                     </div>
                                 </div>
 
-                                <h3 className="text-4xl font-black text-white uppercase tracking-wider mb-2">{mvp.gameName}</h3>
+                                <h3 className="text-4xl font-[family-name:var(--font-outfit)] font-black text-white uppercase tracking-wider mb-2">{mvp.gameName}</h3>
                                 <div className="flex items-center justify-center gap-4 text-yellow-500/80 font-mono text-sm">
                                     <span>#{mvp.tagLine}</span>
                                     {mvp.tier && <span>• {mvp.tier}</span>}

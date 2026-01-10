@@ -791,6 +791,64 @@ export class RankingService {
     }
 
     /**
+     * Get System Initialization Status
+     * Checks if there are any players in the database.
+     */
+    async getSystemInitStatus() {
+        const count = await prisma.player.count();
+        return {
+            isFirstRun: count === 0,
+            playerCount: count
+        };
+    }
+
+    /**
+     * Bulk Add Players (First Run)
+     */
+    async bulkAddPlayers(playersInput: { gameName: string; tagLine: string }[]) {
+        const results = {
+            success: [] as string[],
+            failed: [] as string[]
+        };
+
+        if (!this.riotService) {
+            throw new Error('RiotService not initialized');
+        }
+
+        for (const input of playersInput) {
+            try {
+                // 1. Resolve Account
+                const account = await this.riotService.getAccountByRiotId(input.gameName, input.tagLine);
+
+                // 2. Create/Update Player
+                await prisma.player.upsert({
+                    where: { puuid: account.puuid },
+                    update: {
+                        gameName: account.gameName,
+                        tagLine: account.tagLine,
+                        isActive: true,
+                        updatedAt: new Date()
+                    },
+                    create: {
+                        puuid: account.puuid,
+                        gameName: account.gameName,
+                        tagLine: account.tagLine,
+                        displayName: `${account.gameName} #${account.tagLine}`,
+                        isActive: true
+                    }
+                });
+
+                results.success.push(`${account.gameName} #${account.tagLine}`);
+            } catch (error) {
+                console.error(`[RankingService] Failed to add ${input.gameName} #${input.tagLine}`, error);
+                results.failed.push(`${input.gameName} #${input.tagLine}`);
+            }
+        }
+
+        return results;
+    }
+
+    /**
      * Hall of Fame (Season Records)
      * - Pentakills (Sum)
      * - Stomper (Highest KDA in a single game)

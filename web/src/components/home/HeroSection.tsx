@@ -81,13 +81,13 @@ export function HeroSection({ player, pdlDelta }: HeroSectionProps) {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
                     >
-                        <h2 className="text-emerald-500 font-mono text-xl md:text-2xl tracking-[0.2em] uppercase mb-2 flex items-center gap-3">
-                            <span className='w-8 h-[2px] bg-emerald-500 inline-block' />
+                        <h2 className="text-emerald-500 font-[family-name:var(--font-outfit)] font-bold text-xl md:text-2xl tracking-[0.2em] uppercase mb-2 flex items-center gap-3">
+                            <span className='w-8 h-[2px] bg-emerald-500 inline-block shadow-[0_0_8px_rgba(16,185,129,0.8)]' />
                             Top 1 Regional
                         </h2>
-                        <h1 className="text-7xl md:text-9xl font-black text-white tracking-tighter uppercase leading-[0.85] mb-6 drop-shadow-xl mix-blend-lighten">
+                        <h1 className="text-7xl md:text-9xl font-[family-name:var(--font-outfit)] font-black text-white tracking-tighter uppercase leading-[0.85] mb-6 drop-shadow-xl mix-blend-lighten">
                             {player.gameName}
-                            <span className="text-3xl md:text-4xl text-gray-500 ml-2 font-normal tracking-normal normal-case opacity-60">#{player.tagLine}</span>
+                            <span className="text-3xl md:text-4xl text-zinc-500 ml-2 font-medium tracking-normal normal-case opacity-60">#{player.tagLine}</span>
                         </h1>
                     </motion.div>
 

@@ -40,7 +40,7 @@ export function NexusPodium({ top3, loading }: NexusPodiumProps) {
                         </div>
 
                         <div className="text-center mt-3">
-                            <h3 className={`font-bold text-white truncate max-w-[120px] ${rank === 1 ? 'text-2xl' : 'text-lg'}`}>
+                            <h3 className={`font-[family-name:var(--font-outfit)] font-bold text-white truncate max-w-[120px] ${rank === 1 ? 'text-2xl' : 'text-lg'}`}>
                                 {player.gameName}
                             </h3>
                             <p className={`font-mono ${color.replace('ring-', 'text-')} font-bold`}>

@@ -17,7 +17,7 @@ export function MatchHistoryGrid({ history, theme, onSelectMatch }: Props) {
     return (
         <div className="space-y-2">
             {/* Headers (CSS Grid) */}
-            <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_0.8fr] md:grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr_0.5fr] px-4 py-2 text-[10px] uppercase font-bold tracking-wider text-zinc-500">
+            <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_0.8fr] md:grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr_0.5fr] px-4 py-2 text-[10px] uppercase font-[family-name:var(--font-outfit)] font-bold tracking-wider text-zinc-500">
                 <div>Campeão</div>
                 <div className="text-center md:text-left">KDA</div>
                 <div className="hidden md:block text-center">Recursos</div>
@@ -97,14 +97,14 @@ function MatchRow({ match, theme, index, onClick }: { match: MatchHistoryEntry, 
                     </div>
                 </div>
                 <div className="min-w-0">
-                    <div className={`text-sm font-bold ${theme.colors.text} truncate`}>{match.championName}</div>
+                    <div className={`text-sm font-[family-name:var(--font-outfit)] font-bold ${theme.colors.text} truncate`}>{match.championName}</div>
                     <div className="text-[10px] text-zinc-500 font-mono tracking-wide">{laneConfig.label}</div>
                 </div>
             </div>
 
             {/* Col 2: KDA */}
             <div className="text-center md:text-left flex flex-col justify-center">
-                <div className="font-bold text-sm text-zinc-200 group-hover:text-white transition-colors">
+                <div className="font-bold font-[family-name:var(--font-outfit)] text-sm text-zinc-200 group-hover:text-white transition-colors">
                     {match.kills}/{match.deaths}/{match.assists}
                 </div>
                 <div className={`text-[10px] font-bold ${Number(match.kda) >= 3 ? 'text-emerald-400' : 'text-zinc-500'}`}>
@@ -132,7 +132,7 @@ function MatchRow({ match, theme, index, onClick }: { match: MatchHistoryEntry, 
 
             {/* Col 5: Score */}
             <div className="text-center">
-                <div className={`font-black text-xl ${theme.colors.accent} opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all`}>
+                <div className={`font-black font-[family-name:var(--font-outfit)] text-xl ${theme.colors.accent} opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all`}>
                     {match.score.toFixed(1)}
                 </div>
                 <div className="text-[8px] text-zinc-600 uppercase font-bold">RiftScore</div>
@@ -141,12 +141,12 @@ function MatchRow({ match, theme, index, onClick }: { match: MatchHistoryEntry, 
             {/* Col 6: Result & Date */}
             <div className="text-right flex flex-col items-end gap-1">
                 <div className={`
-                    inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider
+                    inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-[family-name:var(--font-outfit)] font-bold uppercase tracking-wider
                     ${isWin ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'}
                 `}>
                     {isWin ? 'Win' : 'Loss'}
                 </div>
-                <div className="text-[10px] font-medium text-zinc-500 flex items-center justify-end gap-1">
+                <div className="text-[10px] font-[family-name:var(--font-outfit)] font-medium text-zinc-500 flex items-center justify-end gap-1">
                     {timeAgo(match.date)}
                 </div>
             </div>

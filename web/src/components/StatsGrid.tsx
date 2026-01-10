@@ -102,7 +102,7 @@ function StatItem({ icon, label, value, subtext, theme, variants, suffix, colorC
             */}
 
             <div className="relative z-10 flex flex-col h-full justify-between">
-                <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-widest ${theme.colors.textSecondary} mb-4`}>
+                <div className={`flex items-center gap-2 text-xs font-[family-name:var(--font-outfit)] font-black uppercase tracking-widest ${theme.colors.textSecondary} mb-4`}>
                     <span className={`p-1.5 rounded-lg bg-black/30 group-hover:bg-white/10 transition-colors ${theme.colors.accent}`}>
                         {icon}
                     </span>
@@ -110,11 +110,11 @@ function StatItem({ icon, label, value, subtext, theme, variants, suffix, colorC
                 </div>
 
                 <div>
-                    <div className={`text-4xl font-black tracking-tight flex items-baseline gap-1 ${colorClass || 'text-white'}`}>
+                    <div className={`text-4xl font-[family-name:var(--font-outfit)] font-black tracking-tight flex items-baseline gap-1 ${colorClass || 'text-white'}`}>
                         <AnimatedCounter value={value} />
                         {suffix && <span className="text-xl opacity-50 font-medium">{suffix}</span>}
                     </div>
-                    <div className={`text-[10px] font-bold mt-1 ${theme.colors.text} opacity-60`}>
+                    <div className={`text-[10px] font-[family-name:var(--font-outfit)] font-bold mt-1 ${theme.colors.text} opacity-60`}>
                         {subtext}
                     </div>
                 </div>

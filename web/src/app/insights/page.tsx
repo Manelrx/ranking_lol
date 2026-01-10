@@ -61,7 +61,7 @@ export default function InsightsPage() {
             {/* Header & Toggle */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white flex items-center gap-2">
+                    <h1 className="text-3xl font-[family-name:var(--font-outfit)] font-bold text-white flex items-center gap-2">
                         <Flame className="w-8 h-8 text-orange-500" />
                         Insights da Temporada
                     </h1>
@@ -77,7 +77,7 @@ export default function InsightsPage() {
                             <button
                                 key={p}
                                 onClick={() => setPeriod(p)}
-                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${period === p ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
+                                className={`px-4 py-1.5 rounded-md text-sm font-[family-name:var(--font-outfit)] font-medium transition-all ${period === p ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
                             >
                                 {p === 'GENERAL' ? 'Geral' : p === 'MONTHLY' ? 'Mensal' : 'Semanal'}
                             </button>
@@ -116,19 +116,19 @@ function TabSystem({ data, fame, shame }: { data: PeriodHighlights, fame: HallOf
             <div className="flex gap-2">
                 <button
                     onClick={() => setActiveTab('highlights')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'highlights' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                    className={`px-4 py-2 rounded-lg font-[family-name:var(--font-outfit)] font-medium transition-colors ${activeTab === 'highlights' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
                 >
                     Destaques
                 </button>
                 <button
                     onClick={() => setActiveTab('fame')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'fame' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' : 'text-gray-400 hover:text-yellow-500'}`}
+                    className={`px-4 py-2 rounded-lg font-[family-name:var(--font-outfit)] font-medium transition-colors ${activeTab === 'fame' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' : 'text-gray-400 hover:text-yellow-500'}`}
                 >
                     Hall da Fama
                 </button>
                 <button
                     onClick={() => setActiveTab('shame')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'shame' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'text-gray-400 hover:text-red-500'}`}
+                    className={`px-4 py-2 rounded-lg font-[family-name:var(--font-outfit)] font-medium transition-colors ${activeTab === 'shame' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'text-gray-400 hover:text-red-500'}`}
                 >
                     Hall da Lama
                 </button>
@@ -155,15 +155,15 @@ function TabSystem({ data, fame, shame }: { data: PeriodHighlights, fame: HallOf
                                                 ringColor="border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.4)]"
                                                 tier={data.mvp.tier}
                                             />
-                                            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg whitespace-nowrap">
+                                            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-[family-name:var(--font-outfit)] font-bold uppercase tracking-wider shadow-lg whitespace-nowrap">
                                                 MVP
                                             </div>
                                         </div>
                                         <div className="flex-1 space-y-2">
-                                            <h3 className="text-3xl md:text-3xl font-black text-white line-clamp-1">{data.mvp.gameName}</h3>
-                                            <p className="text-yellow-500 font-medium">{data.mvp.label}</p>
+                                            <h3 className="text-3xl md:text-3xl font-[family-name:var(--font-outfit)] font-black text-white line-clamp-1">{data.mvp.gameName}</h3>
+                                            <p className="text-yellow-500 font-[family-name:var(--font-outfit)] font-medium">{data.mvp.label}</p>
                                             <div className="inline-flex items-center gap-2 bg-yellow-500/20 px-4 py-2 rounded-lg border border-yellow-500/30">
-                                                <span className="text-2xl font-bold text-yellow-100">{data.mvp.value}</span>
+                                                <span className="text-2xl font-[family-name:var(--font-outfit)] font-bold text-yellow-100">{data.mvp.value}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -173,7 +173,7 @@ function TabSystem({ data, fame, shame }: { data: PeriodHighlights, fame: HallOf
                             {/* Highest Score */}
                             {data.highestScore ? (
                                 <Card className="relative overflow-hidden border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-transparent p-6 flex flex-col items-center justify-center text-center h-full min-h-[280px]">
-                                    <h3 className="text-sm font-bold text-purple-400 uppercase tracking-wider mb-6">✨ Maior Pontuação Única</h3>
+                                    <h3 className="text-sm font-[family-name:var(--font-outfit)] font-bold text-purple-400 uppercase tracking-wider mb-6">✨ Maior Pontuação Única</h3>
                                     <div className="relative mb-6">
                                         <PlayerAvatar
                                             profileIconId={data.highestScore.profileIconId}
@@ -182,8 +182,8 @@ function TabSystem({ data, fame, shame }: { data: PeriodHighlights, fame: HallOf
                                             tier={data.highestScore.tier}
                                         />
                                     </div>
-                                    <h2 className="text-2xl font-bold text-white mb-1 line-clamp-1">{data.highestScore.gameName}</h2>
-                                    <div className="text-5xl font-black text-purple-200 mb-2">{data.highestScore.value}</div>
+                                    <h2 className="text-2xl font-[family-name:var(--font-outfit)] font-bold text-white mb-1 line-clamp-1">{data.highestScore.gameName}</h2>
+                                    <div className="text-5xl font-[family-name:var(--font-outfit)] font-black text-purple-200 mb-2">{data.highestScore.value}</div>
                                 </Card>
                             ) : null}
                         </div>
@@ -274,16 +274,16 @@ function HighlightCard({ title, icon, player, color, delay, extraInfo }: any) {
                             {icon}
                         </div>
                         <div className="flex flex-col">
-                            <h3 className="font-bold text-gray-200 leading-none">{title}</h3>
+                            <h3 className="font-[family-name:var(--font-outfit)] font-bold text-gray-200 leading-none">{title}</h3>
                             {extraInfo && (
-                                <span className="text-[10px] text-pink-400 font-bold uppercase tracking-wide mt-1">
+                                <span className="text-[10px] text-pink-400 font-[family-name:var(--font-outfit)] font-bold uppercase tracking-wide mt-1">
                                     {extraInfo}
                                 </span>
                             )}
                         </div>
                     </div>
                     {/* Badge */}
-                    <div className="bg-black/60 px-3 py-1 rounded-full border border-white/10 text-xs font-mono text-gray-400 text-right">
+                    <div className="bg-black/60 px-3 py-1 rounded-full border border-white/10 text-xs font-[family-name:var(--font-outfit)] text-gray-400 text-right">
                         <div>{player.label}</div>
                         <div className="text-white font-bold">{player.value}</div>
                     </div>
@@ -292,7 +292,7 @@ function HighlightCard({ title, icon, player, color, delay, extraInfo }: any) {
                 <div className="flex items-center gap-4 relative z-10">
                     <PlayerAvatar profileIconId={player.profileIconId} size="lg" className="ring-2 ring-white/10 group-hover:ring-white/30 transition-all shrink-0" tier={player.tier} />
                     <div className="min-w-0">
-                        <div className="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
+                        <div className="text-xl font-[family-name:var(--font-outfit)] font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
                             {player.gameName}
                         </div>
                         <div className="text-sm text-gray-500 font-mono truncate">#{player.tagLine}</div>

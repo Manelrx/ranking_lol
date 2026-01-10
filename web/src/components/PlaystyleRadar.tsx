@@ -30,7 +30,7 @@ export function PlaystyleRadar({ playstyle, theme }: PlaystyleRadarProps) {
             transition={{ delay: 0.3 }}
             className={`${theme.styles.borderRadius} p-6 ${theme.colors.cardBg} relative overflow-hidden flex flex-col items-center justify-center`}
         >
-            <h3 className={`text-xs font-bold uppercase tracking-widest ${theme.colors.textSecondary} mb-4 w-full text-left`}>
+            <h3 className={`text-xs font-[family-name:var(--font-outfit)] font-bold uppercase tracking-widest ${theme.colors.textSecondary} mb-4 w-full text-left`}>
                 Estilo de Jogo
             </h3>
 
@@ -57,16 +57,16 @@ export function PlaystyleRadar({ playstyle, theme }: PlaystyleRadarProps) {
             {/* Legend/Score Summary */}
             <div className="flex justify-between w-full mt-2 px-4">
                 <div className="text-center">
-                    <div className="text-[10px] text-zinc-500 uppercase">Performance</div>
-                    <div className="text-sm font-bold text-white">{playstyle.combat}</div>
+                    <div className="text-[10px] text-zinc-500 font-[family-name:var(--font-outfit)] uppercase">Performance</div>
+                    <div className="text-sm font-[family-name:var(--font-outfit)] font-bold text-white">{playstyle.combat}</div>
                 </div>
                 <div className="text-center">
-                    <div className="text-[10px] text-zinc-500 uppercase">Obj</div>
-                    <div className="text-sm font-bold text-white">{playstyle.objectives}</div>
+                    <div className="text-[10px] text-zinc-500 font-[family-name:var(--font-outfit)] uppercase">Obj</div>
+                    <div className="text-sm font-[family-name:var(--font-outfit)] font-bold text-white">{playstyle.objectives}</div>
                 </div>
                 <div className="text-center">
-                    <div className="text-[10px] text-zinc-500 uppercase">Disc</div>
-                    <div className="text-sm font-bold text-white">{playstyle.discipline}</div>
+                    <div className="text-[10px] text-zinc-500 font-[family-name:var(--font-outfit)] uppercase">Disc</div>
+                    <div className="text-sm font-[family-name:var(--font-outfit)] font-bold text-white">{playstyle.discipline}</div>
                 </div>
             </div>
         </motion.div>

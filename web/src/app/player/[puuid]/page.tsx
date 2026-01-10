@@ -93,7 +93,7 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
     if (!history || !insights) {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-                <h2 className="text-2xl font-bold text-white mb-2">Jogador não encontrado</h2>
+                <h2 className="text-2xl font-[family-name:var(--font-outfit)] font-bold text-white mb-2">Jogador não encontrado</h2>
                 <button onClick={() => router.push('/')} className="mt-4 px-6 py-2 bg-white/10 rounded-lg hover:bg-white/20">
                     Voltar ao Ranking
                 </button>
@@ -148,7 +148,7 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
                                         <TrendingUp size={20} className={theme.colors.accent} />
                                     </div>
                                     <div>
-                                        <h3 className={`text-lg font-bold ${theme.colors.text}`}>Evolução de PDL</h3>
+                                        <h3 className={`text-lg font-[family-name:var(--font-outfit)] font-bold ${theme.colors.text}`}>Evolução de PDL</h3>
                                     </div>
                                 </div>
                                 {/* Filters */}
@@ -173,7 +173,7 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
                         {/* B. Match History Grid */}
                         <div className="relative">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className={`text-lg font-bold ${theme.colors.text} uppercase tracking-wider flex items-center gap-2`}>
+                                <h3 className={`text-lg font-[family-name:var(--font-outfit)] font-bold ${theme.colors.text} uppercase tracking-wider flex items-center gap-2`}>
                                     Histórico
                                     {isRefetching && <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-zinc-400 animate-pulse">Atualizando...</span>}
                                 </h3>
@@ -221,7 +221,7 @@ export default function PlayerProfile({ params }: { params: Promise<{ puuid: str
 
                         {/* A. Profile Stats (Moved Here) */}
                         <div className="space-y-2">
-                            <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest px-1">Performance Geral</h4>
+                            <h4 className="text-xs font-[family-name:var(--font-outfit)] font-bold text-zinc-500 uppercase tracking-widest px-1">Performance Geral</h4>
                             {/* Force 2 cols for sidebar look */}
                             <StatsGrid stats={insights.stats} theme={theme} className="!grid-cols-2 !lg:grid-cols-2 !mb-0" />
                         </div>

@@ -117,13 +117,13 @@ export default function RankingPage() {
             {/* Header with Mode Switcher */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
                 <div>
-                    <h2 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
+                    <h2 className="text-4xl font-[family-name:var(--font-outfit)] font-bold text-white tracking-tight flex items-center gap-3">
                         <Trophy className="w-10 h-10 text-yellow-500" />
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
                             Ranking da Temporada
                         </span>
                     </h2>
-                    <p className="text-gray-400 mt-2 text-lg">
+                    <p className="text-zinc-400 mt-2 text-lg">
                         {viewMode === "TIER" && "Classificação oficial baseada em PDL e Elo."}
                         {viewMode === "GLOBAL" && "Os maiores pontuadores do RiftScore geral."}
                         {viewMode === "LANE" && `Os reis da rota ${LANES.find(l => l.id === activeLane)?.label}.`}
@@ -276,9 +276,9 @@ export default function RankingPage() {
                                                             "Líder Global"}
                                                 </span>
                                             </div>
-                                            <h3 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">
+                                            <h3 className="text-4xl md:text-5xl font-[family-name:var(--font-outfit)] font-black text-white mb-2 tracking-tight">
                                                 {topPlayer.gameName}
-                                                <span className="text-gray-500 text-2xl font-normal ml-2">#{topPlayer.tagLine}</span>
+                                                <span className="text-zinc-500 text-2xl font-normal ml-2 font-sans">#{topPlayer.tagLine}</span>
                                             </h3>
 
                                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 md:gap-8 text-sm md:text-lg text-gray-300 font-medium">

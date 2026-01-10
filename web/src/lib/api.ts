@@ -335,3 +335,22 @@ export async function getHallOfShame(queue: 'SOLO' | 'FLEX' = 'SOLO', period: 'W
     if (!res.ok) throw new Error('Failed to fetch Hall of Shame');
     return res.json();
 }
+
+/**
+ * System Initialization (First Run)
+ */
+export async function getSystemInitStatus(): Promise<{ isFirstRun: boolean; playerCount: number }> {
+    const res = await fetch(`${API_URL}/system/init-status`, { cache: 'no-store' });
+    if (!res.ok) return { isFirstRun: false, playerCount: 999 }; // Default to safe state
+    return res.json();
+}
+
+export async function initPlayers(players: { gameName: string; tagLine: string }[]): Promise<{ success: string[]; failed: string[] }> {
+    const res = await fetch(`${API_URL}/system/init-players`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ players })
+    });
+    if (!res.ok) throw new Error('Failed to initialize players');
+    return res.json();
+}

@@ -28,9 +28,9 @@ export function MasteryShowcase({ masteries, theme }: { masteries: Mastery[], th
             <div className="p-4 border-b border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Award className={theme.colors.accent} size={18} />
-                    <h3 className={`text-lg font-bold ${theme.colors.text}`}>Maestrias</h3>
+                    <h3 className={`text-lg font-[family-name:var(--font-outfit)] font-bold ${theme.colors.text}`}>Maestrias</h3>
                 </div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                <div className="text-[10px] font-[family-name:var(--font-outfit)] font-bold uppercase tracking-wider text-zinc-500">
                     O Melhor
                 </div>
             </div>
@@ -52,10 +52,10 @@ export function MasteryShowcase({ masteries, theme }: { masteries: Mastery[], th
                         {/* Content */}
                         <div className="absolute bottom-0 inset-x-0 p-3 z-10">
                             <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm font-black text-white uppercase tracking-wider drop-shadow-md">{m.championName}</span>
+                                <span className="text-sm font-[family-name:var(--font-outfit)] font-black text-white uppercase tracking-wider drop-shadow-md">{m.championName}</span>
                                 {i === 0 && <Star size={12} className="text-yellow-400 fill-yellow-400 animate-pulse" />}
                             </div>
-                            <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-zinc-300">
+                            <div className="flex items-center gap-2 text-[10px] font-[family-name:var(--font-outfit)] font-bold text-zinc-300">
                                 <span className="bg-black/50 px-1.5 py-0.5 rounded border border-white/10 text-white">M{m.level}</span>
                                 <span className={theme.colors.accent}>{new Intl.NumberFormat('en', { notation: 'compact' }).format(m.points)}</span>
                             </div>
@@ -73,8 +73,8 @@ export function MasteryShowcase({ masteries, theme }: { masteries: Mastery[], th
                             className="w-8 h-8 rounded-full border border-white/10 group-hover:border-white/30 grayscale group-hover:grayscale-0 transition-all"
                         />
                         <div className="flex-1 flex justify-between items-center">
-                            <span className="text-xs font-bold text-zinc-400 group-hover:text-zinc-200 uppercase">{m.championName}</span>
-                            <span className="text-[10px] font-mono text-zinc-600 group-hover:text-zinc-400">{new Intl.NumberFormat('en', { notation: 'compact' }).format(m.points)}</span>
+                            <span className="text-xs font-[family-name:var(--font-outfit)] font-bold text-zinc-400 group-hover:text-zinc-200 uppercase">{m.championName}</span>
+                            <span className="text-[10px] font-[family-name:var(--font-outfit)] font-bold text-zinc-600 group-hover:text-zinc-400">{new Intl.NumberFormat('en', { notation: 'compact' }).format(m.points)}</span>
                         </div>
                     </div>
                 ))}

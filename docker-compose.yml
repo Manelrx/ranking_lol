@@ -75,6 +75,7 @@ services:
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: ranking_tunnel
+    profiles: ["production"]
     restart: always
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}

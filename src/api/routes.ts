@@ -1,11 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { RankingService } from '../services/ranking.service';
+import { SyncService } from '../services/sync.service'; // Added
 import { PrismaClient } from '@prisma/client';
 import { RiotService } from '../services/riot.service';
 
 const prisma = new PrismaClient();
 const riotService = new RiotService(process.env.RIOT_API_KEY || '');
 const rankingService = new RankingService(riotService);
+const syncService = new SyncService(); // Added
 
 export async function rankingRoutes(fastify: FastifyInstance) {
 
@@ -136,7 +138,45 @@ export async function rankingRoutes(fastify: FastifyInstance) {
             reply.status(500).send({ error: 'Internal Server Error' });
         }
     });
-    // 7. System Status
+    // 7. System Initialization
+    fastify.get('/api/system/init-status', async (request, reply) => {
+        try {
+            return await rankingService.getSystemInitStatus();
+        } catch (error) {
+            console.error(error);
+            reply.status(500).send({ error: 'Internal Server Error' });
+        }
+    });
+
+    interface InitPlayersBody { players: { gameName: string; tagLine: string }[] }
+    fastify.post<{ Body: InitPlayersBody }>('/api/system/init-players', async (request, reply) => {
+        const { players } = request.body;
+        if (!players || !Array.isArray(players) || players.length === 0) {
+            return reply.status(400).send({ error: 'Invalid players list' });
+        }
+
+        try {
+            // 1. Add Players
+            const result = await rankingService.bulkAddPlayers(players);
+
+            // 2. Fast Sync (Await for essential data like Icons, Mastery, Ranks)
+            // This ensures the dashboard has data immediately after the modal closes.
+            await syncService.runFastSync();
+
+            // 3. Trigger Background Ingest (Heavy lifting: Match History, Calc)
+            syncService.runBackgroundIngest().catch(err => console.error('Background Ingest Error:', err));
+
+            return {
+                ...result,
+                message: 'Players added and synced. Background processing started.'
+            };
+        } catch (error) {
+            console.error(error);
+            reply.status(500).send({ error: 'Internal Server Error' });
+        }
+    });
+
+    // 8. System Status
     fastify.get('/api/status', async (request, reply) => {
         console.log(`[API] /status - Request received at ${new Date().toISOString()}`);
         reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');

@@ -70,7 +70,7 @@ export function Ticker({ trends }: TickerProps) {
                             {item.meta === 'SOLO' ? 'SOLO' : 'FLEX'}
                         </div>
 
-                        <span className="text-white font-bold tracking-wide">{item.gameName}</span>
+                        <span className="text-white font-[family-name:var(--font-outfit)] font-bold tracking-wide">{item.gameName}</span>
 
                         <span className={`flex items-center gap-0.5 font-mono ${item.isGain ? 'text-emerald-400' : 'text-red-400'}`}>
                             {item.isGain ? <TrendingUp size={12} /> : <TrendingDown size={12} />}

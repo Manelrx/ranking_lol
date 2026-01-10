@@ -1,55 +1,62 @@
 "use client";
 
 import { useQueue } from "@/contexts/QueueContext";
-import { Menu } from "lucide-react";
+import { Menu, ChevronRight } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 interface TopbarProps {
     onMenuClick: () => void;
+    isScrolled?: boolean;
 }
 
-export function Topbar({ onMenuClick }: TopbarProps) {
+export function Topbar({ onMenuClick, isScrolled = false }: TopbarProps) {
     const { queueType, setQueueType } = useQueue();
 
     return (
-        <header className="h-16 flex items-center justify-between px-4 lg:px-8 border-b border-white/5 bg-[var(--color-surface)]/80 backdrop-blur-md sticky top-0 z-40 transition-all">
-            {/* Left: Menu Trigger & Title */}
-            <div className="flex items-center gap-4">
+        <header
+            className={`h-16 flex items-center justify-between px-8 transition-all duration-500 ${isScrolled
+                    ? "bg-black/10 backdrop-blur-sm border-b border-white/5"
+                    : "bg-transparent border-b border-transparent"
+                }`}
+        >
+            {/* Left: Menu & Brand */}
+            <div className="flex items-center gap-6">
                 <button
                     onClick={onMenuClick}
-                    className="p-2 -ml-2 rounded-lg lg:hidden text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                    className="p-2 -ml-2 rounded-xl lg:hidden text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
                 >
                     <Menu className="w-6 h-6" />
                 </button>
 
-                <div className="hidden sm:flex items-center space-x-3 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
-                    <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Season 2026</span>
+                <div className={`flex flex-col justify-center transition-all duration-500 ${isScrolled ? "opacity-40 hover:opacity-100" : "opacity-100"}`}>
+                    <h1 className="text-xl font-[family-name:var(--font-outfit)] font-black tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-white to-emerald-400 bg-[size:200%] animate-shine drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]">
+                        RANKING <span className="text-white">2026</span>
+                    </h1>
                 </div>
             </div>
 
             {/* Right: Queue Toggle */}
-            <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 backdrop-blur-sm">
-                <button
-                    onClick={() => setQueueType("SOLO")}
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${queueType === "SOLO"
-                        ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
-                        : "text-gray-400 hover:text-white hover:bg-white/5"
-                        }`}
-                >
-                    Solo/Duo
-                </button>
-                <button
-                    onClick={() => setQueueType("FLEX")}
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${queueType === "FLEX"
-                        ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/20"
-                        : "text-gray-400 hover:text-white hover:bg-white/5"
-                        }`}
-                >
-                    Flex
-                </button>
+            <div className={`flex items-center gap-4 transition-all duration-500 ${isScrolled ? "opacity-60 hover:opacity-100" : "opacity-100"}`}>
+                <div className="flex bg-black/30 p-1 rounded-lg border border-white/5 backdrop-blur-md scale-90 origin-right">
+                    <button
+                        onClick={() => setQueueType("SOLO")}
+                        className={`px-4 py-1.5 rounded-md text-[10px] font-bold font-[family-name:var(--font-outfit)] tracking-wide transition-all duration-300 ${queueType === "SOLO"
+                            ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
+                            : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                            }`}
+                    >
+                        SOLO
+                    </button>
+                    <button
+                        onClick={() => setQueueType("FLEX")}
+                        className={`px-4 py-1.5 rounded-md text-[10px] font-bold font-[family-name:var(--font-outfit)] tracking-wide transition-all duration-300 ${queueType === "FLEX"
+                            ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
+                            : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                            }`}
+                    >
+                        FLEX
+                    </button>
+                </div>
             </div>
         </header>
     );

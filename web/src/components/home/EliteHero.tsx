@@ -31,7 +31,7 @@ export function EliteHero({ top3, loading }: EliteHeroProps) {
                 <div className={`absolute inset-0 bg-gradient-to-b ${rank === 1 ? 'from-amber-400/10' : 'from-white/5'} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
 
                 {/* Rank Number */}
-                <div className="absolute top-4 right-6 text-8xl font-black text-white/5 select-none font-serif italic">
+                <div className="absolute top-4 right-6 text-8xl font-[family-name:var(--font-outfit)] font-black text-white/5 select-none font-serif italic">
                     {rank}
                 </div>
 
@@ -52,7 +52,7 @@ export function EliteHero({ top3, loading }: EliteHeroProps) {
                 {/* Info */}
                 <div className="text-center relative z-10">
                     <Link href={`/player/${player.puuid}`} className="block">
-                        <h3 className={`font-bold text-white tracking-tight hover:text-emerald-400 transition-colors ${rank === 1 ? 'text-3xl' : 'text-xl'}`}>
+                        <h3 className={`font-[family-name:var(--font-outfit)] font-bold text-white tracking-tight hover:text-emerald-400 transition-colors ${rank === 1 ? 'text-3xl' : 'text-xl'}`}>
                             {player.gameName}
                         </h3>
                     </Link>

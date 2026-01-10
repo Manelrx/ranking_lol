@@ -58,14 +58,14 @@ export function DuelOfTheWeek({ mvp, antiMvp, loading }: DuelOfTheWeekProps) {
                             <span className="font-bold tracking-widest uppercase text-sm">O Carregador</span>
                         </div>
 
-                        <h3 className="text-4xl font-black text-white mb-1 uppercase italic tracking-tighter drop-shadow-lg">MVP</h3>
+                        <h3 className="text-4xl font-[family-name:var(--font-outfit)] font-black text-white mb-1 uppercase italic tracking-tighter drop-shadow-lg">MVP</h3>
                         <p className="text-indigo-200 text-sm mb-6">Média de Score Superior</p>
 
                         {mvp ? (
                             <Link href={`/player/${mvp.puuid}`} className="mt-auto flex items-center gap-4 bg-black/20 p-4 rounded-xl backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-colors w-full md:w-auto">
                                 <PlayerAvatar profileIconId={mvp.profileIconId} size="lg" className="ring-2 ring-yellow-400" />
                                 <div className="text-left">
-                                    <div className="font-bold text-white text-xl">{mvp.gameName}</div>
+                                    <div className="font-[family-name:var(--font-outfit)] font-bold text-white text-xl">{mvp.gameName}</div>
                                     <div className="text-yellow-400 font-mono font-bold text-lg">{mvp.value} pts/jogo</div>
                                 </div>
                             </Link>
@@ -96,14 +96,14 @@ export function DuelOfTheWeek({ mvp, antiMvp, loading }: DuelOfTheWeekProps) {
                             <Skull className="w-5 h-5" />
                         </div>
 
-                        <h3 className="text-4xl font-black text-gray-500 mb-1 uppercase italic tracking-tighter line-through decoration-red-500 decoration-4">Anti-MVP</h3>
+                        <h3 className="text-4xl font-[family-name:var(--font-outfit)] font-black text-gray-500 mb-1 uppercase italic tracking-tighter line-through decoration-red-500 decoration-4">Anti-MVP</h3>
                         <p className="text-gray-500 text-sm mb-6 font-mono">Precisa de um abraço</p>
 
                         {antiMvp ? (
                             <Link href={`/player/${antiMvp.puuid}`} className="mt-auto flex flex-row-reverse items-center gap-4 bg-black/40 p-4 rounded-xl backdrop-blur-sm border border-red-900/30 hover:bg-red-900/10 transition-colors w-full md:w-auto hover:border-red-500/50 group/shame">
                                 <PlayerAvatar profileIconId={antiMvp.profileIconId} size="lg" className="grayscale contrast-125 ring-2 ring-gray-700 group-hover/shame:ring-red-500 transition-all" />
                                 <div className="text-right">
-                                    <div className="font-bold text-gray-300 text-xl group-hover/shame:text-red-400 transition-colors">{antiMvp.gameName}</div>
+                                    <div className="font-[family-name:var(--font-outfit)] font-bold text-gray-300 text-xl group-hover/shame:text-red-400 transition-colors">{antiMvp.gameName}</div>
                                     <div className="text-gray-500 font-mono font-bold text-lg group-hover/shame:text-red-500">{antiMvp.avgScore ?? '0.0'} pts/jogo</div>
                                 </div>
                             </Link>
